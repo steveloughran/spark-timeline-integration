@@ -20,6 +20,11 @@ package org.apache.spark.deploy.history.yarn.integration
 import java.io.FileNotFoundException
 import java.net.URL
 
+import scala.concurrent.duration._
+import scala.language.postfixOps
+
+import org.scalatest.concurrent.Eventually
+
 import org.apache.spark.deploy.history.HistoryServer
 import org.apache.spark.deploy.history.yarn.{YarnEventListener, YarnHistoryService}
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
@@ -32,7 +37,8 @@ import org.apache.spark.util.Utils
 /**
  * Complete integration test: lifecycle events through to web site
  */
-class WebsiteIntegrationSuite extends AbstractHistoryIntegrationTests {
+class WebsiteIntegrationSuite extends AbstractHistoryIntegrationTests
+  with Eventually {
 
   test("Instantiate HistoryProvider") {
     val provider = createHistoryProvider(sc.conf)
@@ -48,6 +54,9 @@ class WebsiteIntegrationSuite extends AbstractHistoryIntegrationTests {
 
   test("Get the web UI of a completed application") {
     def submitAndCheck(webUI: URL, provider: YarnHistoryProvider): Unit = {
+
+      addFailureAction(dumpProviderState(provider))
+      addFailureAction(dumpTimelineEntities(provider))
 
       historyService = startHistoryService(sc)
       val listener = new YarnEventListener(sc, historyService)
@@ -83,20 +92,18 @@ class WebsiteIntegrationSuite extends AbstractHistoryIntegrationTests {
       assertSome(appInListing, s"Application $expectedAppId not found in listing $listing")
       val attempts = appInListing.get.attempts
       assertNotEmpty( attempts, s"App attempts empty")
-      val firstAttempt = attempts.head
-      val expectedWebAttemptId = firstAttempt.attemptId.get
+      val expectedWebAttemptId = attempts.head.attemptId.get
 
       // and look for the complete app
       awaitURL(webUI, TEST_STARTUP_DELAY)
       val connector = createUrlConnector()
+      val stdInterval = interval(100 milliseconds)
+      val stdTimeout = timeout(20 seconds)
 
-      val completeBody = awaitURLDoesNotContainText(connector, webUI,
-           no_completed_applications, TEST_STARTUP_DELAY)
-      logInfo(s"GET /\n$completeBody")
-      // look for the anchor body
-      assertContains(completeBody, s"$expectedAppId</a>")
-      // look for the tail of the link
-      assertContains(completeBody, s"/history/$expectedAppId/$expectedWebAttemptId")
+
+      eventually(stdTimeout, stdInterval) {
+        listApplications(webUI, true) should contain(expectedAppId)
+      }
 
       val appPath = HistoryServer.getAttemptURI(expectedAppId, Some(expectedWebAttemptId))
       // GET the app
@@ -121,8 +128,7 @@ class WebsiteIntegrationSuite extends AbstractHistoryIntegrationTests {
 
       // then try to resolve the app on its own and expect a failure
       intercept[FileNotFoundException] {
-        val appURL = new URL(webUI, s"/history/$expectedAppId")
-        connector.execHttpOperation("GET", appURL)
+        connector.execHttpOperation("GET", new URL(webUI, s"/history/$expectedAppId"))
       }
     }
 

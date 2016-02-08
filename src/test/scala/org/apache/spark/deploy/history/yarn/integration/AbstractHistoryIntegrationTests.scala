@@ -28,7 +28,9 @@ import org.apache.hadoop.yarn.api.records.timeline.{TimelineEntity, TimelineEven
 import org.apache.hadoop.yarn.client.api.TimelineClient
 import org.apache.hadoop.yarn.server.applicationhistoryservice.ApplicationHistoryServer
 import org.json4s.JValue
+import org.json4s.JsonAST.{JString, JBool, JArray, JNothing}
 import org.json4s.jackson.JsonMethods
+import org.json4s.jackson.JsonMethods._
 
 import org.apache.spark.{SecurityManager, SparkConf}
 import org.apache.spark.deploy.history.{ApplicationHistoryProvider, FsHistoryProvider, HistoryServer}
@@ -391,6 +393,24 @@ abstract class AbstractHistoryIntegrationTests
     JsonMethods.parse(outcome.responseBody)
   }
 
+  // get a list of app Ids of all apps in a given state. REST API
+  def listApplications(webUI: URL, completed: Boolean): Seq[String] = {
+    val json = getJsonResource(new URL(webUI, "/api/v1/applications/"))
+    logDebug(s"${JsonMethods.pretty(json)}")
+    json match {
+      case JNothing => Seq()
+      case apps: JArray =>
+        apps.filter(app => {
+          (app \ "attempts") match {
+            case attempts: JArray =>
+              val state = (attempts.children.head \ "completed").asInstanceOf[JBool]
+              state.value == completed
+            case _ => false
+          }
+        }).map(app => (app \ "id").asInstanceOf[JString].values)
+      case _ => Seq()
+    }
+  }
   /**
    * Assert that a list of checks are in the HTML body
    * @param body body of HTML (or other string)
