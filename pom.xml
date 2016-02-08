@@ -22,6 +22,8 @@
     <fasterxml.jackson.version>2.5.3</fasterxml.jackson.version>
     <hadoop.version>2.7.1</hadoop.version>
     <jersey.version>1.9</jersey.version>
+    <jetty.version>8.1.14.v20131031</jetty.version>
+
 
     <!-- plugin versions -->
     <maven-exec-plugin.version>1.4.0</maven-exec-plugin.version>
@@ -215,6 +217,44 @@
         </exclusion>
       </exclusions>
     </dependency>
+
+
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-http</artifactId>
+      <version>${jetty.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-continuation</artifactId>
+      <version>${jetty.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-servlet</artifactId>
+      <version>${jetty.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-util</artifactId>
+      <version>${jetty.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-security</artifactId>
+      <version>${jetty.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-plus</artifactId>
+      <version>${jetty.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-server</artifactId>
+      <version>${jetty.version}</version>
+    </dependency>
+
   </dependencies>
   <build>
     <sourceDirectory>src/main/scala</sourceDirectory>

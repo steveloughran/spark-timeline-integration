@@ -83,7 +83,7 @@ class WebsiteIntegrationSuite extends AbstractHistoryIntegrationTests {
       assertSome(appInListing, s"Application $expectedAppId not found in listing $listing")
       val attempts = appInListing.get.attempts
       assertNotEmpty( attempts, s"App attempts empty")
-      val firstAttempt = attempts.head.asInstanceOf[TimelineApplicationAttemptInfo]
+      val firstAttempt = attempts.head
       val expectedWebAttemptId = firstAttempt.attemptId.get
 
       // and look for the complete app

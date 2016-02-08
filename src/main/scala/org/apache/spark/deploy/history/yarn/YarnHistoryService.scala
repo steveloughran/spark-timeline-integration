@@ -147,7 +147,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
   private var postQueueLimit = DEFAULT_POST_EVENT_LIMIT
 
   /** List of events which will be pulled into a timeline entity when created. */
-  private var pendingEvents = new mutable.LinkedList[TimelineEvent]()
+  private var pendingEvents = new mutable.MutableList[TimelineEvent]()
 
   /** The received application started event; `None` if no event has been received. */
   private var applicationStartEvent: Option[SparkListenerApplicationStart] = None
@@ -653,7 +653,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
       // copy in pending events and then reset the list
       pendingEvents.synchronized {
         pendingEvents.foreach(timelineEntity.addEvent)
-        pendingEvents = new mutable.LinkedList[TimelineEvent]()
+        pendingEvents = new mutable.MutableList[TimelineEvent]()
       }
       queueForPosting(timelineEntity)
       true
