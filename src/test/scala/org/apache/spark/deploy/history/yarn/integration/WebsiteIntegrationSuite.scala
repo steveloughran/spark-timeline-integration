@@ -23,22 +23,19 @@ import java.net.URL
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-import org.scalatest.concurrent.Eventually
-
 import org.apache.spark.deploy.history.HistoryServer
 import org.apache.spark.deploy.history.yarn.{YarnEventListener, YarnHistoryService}
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
 import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
 import org.apache.spark.deploy.history.yarn.rest.HttpOperationResponse
-import org.apache.spark.deploy.history.yarn.server.{TimelineApplicationAttemptInfo, YarnHistoryProvider}
+import org.apache.spark.deploy.history.yarn.server.YarnHistoryProvider
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
 import org.apache.spark.util.Utils
 
 /**
  * Complete integration test: lifecycle events through to web site
  */
-class WebsiteIntegrationSuite extends AbstractHistoryIntegrationTests
-  with Eventually {
+class WebsiteIntegrationSuite extends AbstractHistoryIntegrationTests {
 
   test("Instantiate HistoryProvider") {
     val provider = createHistoryProvider(sc.conf)
@@ -96,13 +93,12 @@ class WebsiteIntegrationSuite extends AbstractHistoryIntegrationTests
 
       // and look for the complete app
       awaitURL(webUI, TEST_STARTUP_DELAY)
+
       val connector = createUrlConnector()
       val stdInterval = interval(100 milliseconds)
-      val stdTimeout = timeout(20 seconds)
-
-
+      val stdTimeout = timeout(TEST_STARTUP_DELAY milliseconds)
       eventually(stdTimeout, stdInterval) {
-        listApplications(webUI, true) should contain(expectedAppId)
+        listRestAPIApplications(connector, webUI, true) should contain(expectedAppId)
       }
 
       val appPath = HistoryServer.getAttemptURI(expectedAppId, Some(expectedWebAttemptId))

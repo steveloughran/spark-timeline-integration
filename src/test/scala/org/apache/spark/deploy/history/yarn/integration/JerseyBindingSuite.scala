@@ -131,4 +131,5 @@ class JerseyBindingSuite extends AbstractYarnHistoryTests {
     assertExceptionDetails(ex, "500", uriPath)
   }
 
+
 }

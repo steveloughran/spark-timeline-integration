@@ -19,6 +19,8 @@ package org.apache.spark.deploy.history.yarn.integration
 
 import java.net.URL
 
+import org.json4s.jackson.JsonMethods
+
 import org.apache.spark.deploy.history.yarn.{YarnEventListener, YarnHistoryService}
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
 import org.apache.spark.deploy.history.yarn.server.YarnHistoryProvider
@@ -35,35 +37,17 @@ class IncompleteApplicationsSuite extends AbstractHistoryIntegrationTests {
 
   val EVENT_PROCESSED_TIMEOUT = 2000
 
-  test("WebUI incomplete view") {
-    def checkEmptyIncomplete(webUI: URL, provider: YarnHistoryProvider): Unit = {
-      val connector = createUrlConnector()
-      val url = new URL(webUI, "/?" + page1_incomplete_flag)
-      val incompleted = connector.execHttpOperation("GET", url, null, "")
-      val body = incompleted.responseBody
-      logInfo(s"$url => $body")
-      assertContains(body, no_incomplete_applications, s"In $url")
-    }
-
-    webUITest("incomplete view", checkEmptyIncomplete)
-  }
-
   test("Get the web UI of an incomplete application") {
     def submitAndCheck(webUI: URL, provider: YarnHistoryProvider): Unit = {
       val connector = createUrlConnector()
       val incompleteURL = new URL(webUI, "/?" + incomplete_flag)
       awaitURL(incompleteURL, TEST_STARTUP_DELAY)
 
-      def listIncompleteApps(): String = {
-        connector.execHttpOperation("GET", incompleteURL, null, "").responseBody
-      }
       historyService = startHistoryService(sc, applicationId, Some(attemptId1))
       val timeline = historyService.timelineWebappAddress
       val listener = new YarnEventListener(sc, historyService)
-      // initial view has no incomplete applications
-      assertContains(listIncompleteApps(), no_incomplete_applications,
-        "initial incomplete page is empty")
 
+      listRestAPIApplications(connector, webUI, false) should have size 0
       val startTime = now()
       val expectedAppId = historyService.applicationId.toString
       val attemptId = attemptId1.toString
@@ -86,8 +70,13 @@ class IncompleteApplicationsSuite extends AbstractHistoryIntegrationTests {
       val queryClient = createTimelineQueryClient()
 
       // check for work in progress
-      assertDoesNotContain(listIncompleteApps(), no_incomplete_applications,
-        "'incomplete application' list empty")
+      val incompleteApplications = listRestAPIApplications(connector, webUI, false)
+      if (incompleteApplications.size != 1) {
+        fail(s"Wrong #of applications ($incompleteApplications) in "
+            + JsonMethods.pretty(getJsonResource(connector, new URL(webUI, REST_APPLICATIONS))))
+      }
+      incompleteApplications should have size 1
+
 
       logInfo("Ending job and application")
       // job completion event
@@ -133,7 +122,8 @@ class IncompleteApplicationsSuite extends AbstractHistoryIntegrationTests {
       assertContains(appUIBody, completedJobsMarker, "expected to list completed jobs")
 
       // final view has no incomplete applications
-      assertContains(listIncompleteApps(), no_incomplete_applications)
+      listRestAPIApplications(connector, webUI, false) should have size 0
+
     }
 
     webUITest("submit and check", submitAndCheck)

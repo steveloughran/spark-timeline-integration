@@ -33,6 +33,7 @@ import org.apache.hadoop.yarn.api.records.timeline.{TimelineEntities, TimelineEn
 import org.apache.spark.Logging
 import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
 import org.apache.spark.deploy.history.yarn.server.TimelineQueryClient
+import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils
 
 /**
  * A timeline query client which is driven by a resource.
@@ -64,12 +65,10 @@ class ResourceDrivenTimelineQueryClient(
    * load in the JSON
    */
   private def init(): Unit = {
-    val in = this.getClass.getClassLoader.getResourceAsStream(resource)
-    require(in != null, s"Failed to load resource $resource")
     val mapper = new ObjectMapper() with ScalaObjectMapper
     // make deserializer use JAXB annotations (only)
     mapper.setAnnotationIntrospector(new JaxbAnnotationIntrospector(TypeFactory.defaultInstance))
-    entities = mapper.readValue[TimelineEntities](in)
+    entities = mapper.readValue[TimelineEntities](YarnTestUtils.loadResource(resource))
     entityList = entities.getEntities.asScala.toList
 
     logDebug(s"$entities entities")

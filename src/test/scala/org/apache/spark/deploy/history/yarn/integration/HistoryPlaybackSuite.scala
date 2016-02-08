@@ -34,7 +34,7 @@ import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
 class HistoryPlaybackSuite extends AbstractHistoryIntegrationTests {
 
   /** path to the resource with the history */
-  val History1 = "org/apache/spark/deploy/history/yarn/integration/history-1.json"
+  val History1 = PackagePath + "history-1.json"
   val EntityCount = 2
   var historyProvider: FailingYarnHistoryProvider = _
 
@@ -86,12 +86,6 @@ class HistoryPlaybackSuite extends AbstractHistoryIntegrationTests {
 
       // and look for the complete app
       awaitURL(webUI, TEST_STARTUP_DELAY)
-      val completeBody = awaitURLDoesNotContainText(connector, webUI,
-        no_completed_applications, TEST_STARTUP_DELAY)
-      logInfo(s"GET /\n$completeBody")
-      // look for the link
-      assertContains(completeBody,
-        "<a href=\"/history/application_1443668830514_0008/application_1443668830514_0008\">")
 
       val appPath = s"/history/$yarnAppId/$yarnAppId"
       // GET the app

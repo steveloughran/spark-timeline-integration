@@ -19,6 +19,9 @@ package org.apache.spark.deploy.history.yarn.integration
 
 import java.net.URL
 
+import scala.concurrent.duration._
+import scala.language.postfixOps
+
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
 import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
 import org.apache.spark.deploy.history.yarn.server.TimelineQueryClient._
@@ -54,7 +57,7 @@ class MultiAttemptWebSuite extends AbstractHistoryIntegrationTests {
       queryClient.getEntity(SPARK_EVENT_ENTITY_TYPE, attempt1)
       queryClient.getEntity(SPARK_EVENT_ENTITY_TYPE, attempt2)
 
-      // at this point the REST API is happy. Check the provider level
+      // at this point the ATS REST API is happy. Check the provider level
 
       // listing must eventually contain two attempts
       val appHistory = awaitListingEntry(provider, expectedAppId, 2, TEST_STARTUP_DELAY)
@@ -66,15 +69,9 @@ class MultiAttemptWebSuite extends AbstractHistoryIntegrationTests {
       getAppUI(provider, expectedAppId, Some(attempt1SparkId))
       getAppUI(provider, expectedAppId, Some(attempt2SparkId))
 
-      // then look for the complete app
+      // then look for the complete app on the web
       awaitURL(webUI, TEST_STARTUP_DELAY)
       val connector = createUrlConnector(conf)
-
-      val completeBody = awaitURLDoesNotContainText(connector, webUI,
-           no_completed_applications, TEST_STARTUP_DELAY)
-      logInfo(s"GET /\n$completeBody")
-      // look for the link
-      assertContains(completeBody, s"$expectedAppId</a>")
 
       val appPath = s"/history/$expectedAppId/$attempt1SparkId"
       // GET the app
@@ -88,6 +85,10 @@ class MultiAttemptWebSuite extends AbstractHistoryIntegrationTests {
       connector.execHttpOperation("GET", new URL(appURL, s"$appPath/storage"), null, "")
       connector.execHttpOperation("GET", new URL(appURL, s"$appPath/environment"), null, "")
       connector.execHttpOperation("GET", new URL(appURL, s"$appPath/executors"), null, "")
+
+      describe("looking at REST UI")
+      awaitHistoryRestUIContainsApp(connector, webUI, expectedAppId, true, TEST_STARTUP_DELAY)
+
     }
 
     webUITest("submit and check", submitAndCheck)

@@ -17,6 +17,7 @@
 
 package org.apache.spark.deploy.history.yarn.integration
 
+import java.io.IOException
 import java.net.URL
 
 import scala.collection.mutable
@@ -30,7 +31,7 @@ import org.apache.hadoop.yarn.server.applicationhistoryservice.ApplicationHistor
 import org.json4s.JValue
 import org.json4s.JsonAST.{JString, JBool, JArray, JNothing}
 import org.json4s.jackson.JsonMethods
-import org.json4s.jackson.JsonMethods._
+import org.scalatest.concurrent.Eventually
 
 import org.apache.spark.{SecurityManager, SparkConf}
 import org.apache.spark.deploy.history.{ApplicationHistoryProvider, FsHistoryProvider, HistoryServer}
@@ -55,8 +56,10 @@ abstract class AbstractHistoryIntegrationTests
     with FreePortFinder
     with HistoryServiceNotListeningToSparkContext
     with TimelineServiceEnabled
-    with IntegrationTestUtils {
+    with IntegrationTestUtils
+    with Eventually {
 
+  protected val PackagePath = "org/apache/spark/deploy/history/yarn/integration/"
   protected var _applicationHistoryServer: ApplicationHistoryServer = _
   protected var _timelineClient: TimelineClient = _
   protected var historyService: YarnHistoryService = _
@@ -79,6 +82,8 @@ abstract class AbstractHistoryIntegrationTests
 
   // a list of actions to fail with
   protected var failureActions: mutable.MutableList[() => Unit] = mutable.MutableList()
+
+  val REST_APPLICATIONS = "/api/v1/applications/"
 
   def applicationHistoryServer: ApplicationHistoryServer = {
     _applicationHistoryServer
@@ -214,8 +219,8 @@ abstract class AbstractHistoryIntegrationTests
    * @return a URL connector for issuing HTTP requests
    */
   protected def createUrlConnector(): SpnegoUrlConnector = {
-    val hadoopConfiguration = sc.hadoopConfiguration
-    createUrlConnector(hadoopConfiguration)
+    require(sc != null)
+    createUrlConnector(sc.hadoopConfiguration)
   }
 
   /**
@@ -386,31 +391,58 @@ abstract class AbstractHistoryIntegrationTests
    * @param page web UI
    * @return the body of the response
    */
-  protected def getJsonResource(page: URL): JValue = {
-    val outcome = createUrlConnector().execHttpOperation("GET", page, null, "")
+  protected def getJsonResource(c: SpnegoUrlConnector, page: URL): JValue = {
+    val outcome = c.execHttpOperation("GET", page, null, "")
     logDebug(s"$page => $outcome")
     assert(outcome.contentType.startsWith("application/json"), s"content type of $outcome")
     JsonMethods.parse(outcome.responseBody)
   }
 
   // get a list of app Ids of all apps in a given state. REST API
-  def listApplications(webUI: URL, completed: Boolean): Seq[String] = {
-    val json = getJsonResource(new URL(webUI, "/api/v1/applications/"))
+  def listRestAPIApplications(c: SpnegoUrlConnector, webUI: URL, completed: Boolean): Seq[String] = {
+    val json = getJsonResource(c, new URL(webUI, REST_APPLICATIONS))
     logDebug(s"${JsonMethods.pretty(json)}")
-    json match {
-      case JNothing => Seq()
-      case apps: JArray =>
-        apps.filter(app => {
-          (app \ "attempts") match {
-            case attempts: JArray =>
-              val state = (attempts.children.head \ "completed").asInstanceOf[JBool]
-              state.value == completed
-            case _ => false
-          }
-        }).map(app => (app \ "id").asInstanceOf[JString].values)
-      case _ => Seq()
-    }
+    filterJsonListing(json, completed)
   }
+
+
+  /**
+   * Spin awaiting a URL to contain some text
+   * @param connector connector to use
+   * @param url URL to probe
+   * @param app text which must be present
+   * @param timeout timeout in mils
+   */
+  def awaitHistoryRestUIContainsApp(
+      connector: SpnegoUrlConnector,
+      url: URL,
+      app: String,
+      completed: Boolean,
+      timeout: Long): String = {
+    def get: String = {
+      connector.execHttpOperation("GET", url, null, "").responseBody
+    }
+    def probe(): Outcome = {
+      try {
+        outcomeFromBool(listRestAPIApplications(connector, url, completed).contains(app))
+      } catch {
+        case ioe: IOException =>
+          Retry()
+        case ex: Exception =>
+          throw ex
+      }
+    }
+    def failure(outcome: Outcome, iterations: Int, timeout: Boolean): Unit = {
+      val json = JsonMethods.pretty(getJsonResource(connector, new URL(url, REST_APPLICATIONS)))
+      fail(s"No app $app in JSON $json")
+    }
+
+    spinForState(s"Awaiting a response from URL $url",
+      interval = 50, timeout = timeout, probe = probe, failure = failure)
+
+    get
+  }
+
   /**
    * Assert that a list of checks are in the HTML body
    * @param body body of HTML (or other string)

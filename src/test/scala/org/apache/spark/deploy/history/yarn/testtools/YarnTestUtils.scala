@@ -17,13 +17,16 @@
 
 package org.apache.spark.deploy.history.yarn.testtools
 
-import java.io.IOException
+import java.io.{InputStream, IOException}
 import java.net.URL
 
 import org.apache.hadoop.yarn.api.records.{ApplicationAttemptId, ApplicationId}
 import org.apache.hadoop.yarn.api.records.timeline.TimelineEntity
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.hadoop.yarn.server.timeline.MemoryTimelineStore
+import org.json4s.JsonAST.{JString, JBool, JArray, JNothing}
+import org.json4s._
+import org.json4s.jackson.JsonMethods
 
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
@@ -588,6 +591,47 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
     s"Spark Context ${ctx.appName} ID ${ctx.applicationId} attempts ${ctx.applicationAttemptId}"
   }
 
+  /**
+   * Load a resource to an input stream
+   * @param resource resource to load
+   * @return input stream; raises an exception if not found
+   */
+  def loadResource(resource: String): InputStream = {
+    val in = this.getClass.getClassLoader.getResourceAsStream(resource)
+    require(in != null, s"Failed to load resource $resource")
+    in
+  }
+
+  /**
+   * Load and parse a resource
+   * @param resource resource
+   * @return parsed JSON
+   */
+  def loadToJson(resource: String): JValue = {
+    JsonMethods.parse(loadResource(resource))
+  }
+
+  /**
+   * Filter out the listing of JSON applications
+   * @param completed
+   * @param json
+   * @return
+   */
+  def filterJsonListing(json: JValue, completed: Boolean): Seq[String] = {
+    json match {
+      case JNothing => Seq()
+      case apps: JArray =>
+        apps.filter(app => {
+          (app \ "attempts") match {
+            case attempts: JArray =>
+              val state = (attempts.children.head \ "completed").asInstanceOf[JBool]
+              state.value == completed
+            case _ => false
+          }
+        }).map(app => (app \ "id").asInstanceOf[JString].values)
+      case _ => Seq()
+    }
+  }
 }
 
 
