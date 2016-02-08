@@ -7,15 +7,21 @@
   <packaging>jar</packaging>
   <version>1.0-SNAPSHOT</version>
   <properties>
-    <spark.version>1.6.0</spark.version>
+    <spark.version>2.0.0-SNAPSHOT</spark.version>
     <maven.properties.version>1.0-alpha-2</maven.properties.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
     <java.version>1.7</java.version>
-    <scala.binary.version>2.10</scala.binary.version>
-    <scala.version>2.10.5</scala.version>
+    <scala.binary.version>2.11</scala.binary.version>
+    <scala.version>2.11.7</scala.version>
     <scala.version.tools>${scala.version}</scala.version.tools>
+
+    <!--library versions-->
+    <codehaus.jackson.version>1.9.13</codehaus.jackson.version>
+    <fasterxml.jackson.version>2.5.3</fasterxml.jackson.version>
+    <hadoop.version>2.7.1</hadoop.version>
+    <jersey.version>1.9</jersey.version>
 
     <!-- plugin versions -->
     <maven-exec-plugin.version>1.4.0</maven-exec-plugin.version>
@@ -27,47 +33,99 @@
     <scalatest-maven-plugin.version>1.0</scalatest-maven-plugin.version>
   </properties>
 
-<!--
-
   <repositories>
     <repository>
-      <id>Spark Staging Repo</id>
-      <url>https://repository.apache.org/content/repositories/orgapachespark-1075/</url>
+      <id>central</id>
+      <!-- This should be at top, it makes maven try the central repo first and then others and hence faster dep resolution -->
+      <name>Maven Repository</name>
+      <url>https://repo1.maven.org/maven2</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
     </repository>
   </repositories>
--->
+  <!--
+
+    <repositories>
+      <repository>
+        <id>Spark Staging Repo</id>
+        <url>https://repository.apache.org/content/repositories/orgapachespark-1075/</url>
+      </repository>
+    </repositories>
+  -->
 
   <dependencies>
     <dependency>
       <groupId>org.apache.spark</groupId>
-      <artifactId>spark-core_2.10</artifactId>
+      <artifactId>spark-core_${scala.binary.version}</artifactId>
       <version>${spark.version}</version>
     </dependency>
+
     <dependency>
       <groupId>org.apache.spark</groupId>
-      <artifactId>spark-sql_2.10</artifactId>
+      <artifactId>spark-core_${scala.binary.version}</artifactId>
+      <version>${spark.version}</version>
+      <classifier>tests</classifier>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-yarn_${scala.binary.version}</artifactId>
       <version>${spark.version}</version>
     </dependency>
+
     <dependency>
-      <groupId>com.google.gdata</groupId>
-      <artifactId>core</artifactId>
-      <version>1.47.1</version>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-yarn_${scala.binary.version}</artifactId>
+      <version>${spark.version}</version>
+      <classifier>tests</classifier>
+    </dependency>
+
+    <!-- Hadoop artifacts for build and test -->
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-common</artifactId>
+      <version>${hadoop.version}</version>
     </dependency>
     <dependency>
-      <groupId>com.google.apis</groupId>
-      <artifactId>google-api-services-oauth2</artifactId>
-      <version>v2-rev87-1.19.1</version>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-auth</artifactId>
+      <version>${hadoop.version}</version>
     </dependency>
     <dependency>
-      <groupId>com.google.apis</groupId>
-      <artifactId>google-api-services-drive</artifactId>
-      <version>v2-rev161-1.19.1</version>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-yarn-api</artifactId>
+      <version>${hadoop.version}</version>
     </dependency>
     <dependency>
-      <groupId>com.google.http-client</groupId>
-      <artifactId>google-http-client-jackson</artifactId>
-      <version>1.19.0</version>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-yarn-common</artifactId>
+      <version>${hadoop.version}</version>
     </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-yarn-server-web-proxy</artifactId>
+      <version>${hadoop.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-yarn-client</artifactId>
+      <version>${hadoop.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-yarn-server-tests</artifactId>
+      <version>${hadoop.version}</version>
+      <classifier>tests</classifier>
+      <scope>test</scope>
+    </dependency>
+
+    <!--test tools -->
+
     <dependency>
       <groupId>org.scalatest</groupId>
       <artifactId>scalatest_${scala.binary.version}</artifactId>
@@ -93,13 +151,70 @@
       <scope>test</scope>
     </dependency>
 
-    <!--jersey stuff -->
+
+
+    <!--jersey and jackson stuff -->
+
     <dependency>
-      <groupId>org.glassfish.jersey.security</groupId>
-      <artifactId>oauth1-client</artifactId>
-      <version>2.22.1</version>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>${fasterxml.jackson.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-annotations</artifactId>
+      <version>${fasterxml.jackson.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.module</groupId>
+      <artifactId>jackson-module-jaxb-annotations</artifactId>
+      <version>${fasterxml.jackson.version}</version>
+      <scope>test</scope>
     </dependency>
 
+    <dependency>
+      <groupId>org.codehaus.jackson</groupId>
+      <artifactId>jackson-core-asl</artifactId>
+      <version>${codehaus.jackson.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.jackson</groupId>
+      <artifactId>jackson-mapper-asl</artifactId>
+      <version>${codehaus.jackson.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.jackson</groupId>
+      <artifactId>jackson-xc</artifactId>
+      <version>${codehaus.jackson.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.jackson</groupId>
+      <artifactId>jackson-jaxrs</artifactId>
+      <version>${codehaus.jackson.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.sun.jersey</groupId>
+      <artifactId>jersey-server</artifactId>
+      <version>${jersey.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.sun.jersey</groupId>
+      <artifactId>jersey-core</artifactId>
+      <version>${jersey.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.sun.jersey</groupId>
+      <artifactId>jersey-json</artifactId>
+      <version>${jersey.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>stax</groupId>
+          <artifactId>stax-api</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
   </dependencies>
   <build>
     <sourceDirectory>src/main/scala</sourceDirectory>
@@ -127,21 +242,21 @@
         </executions>
       </plugin>
 
-<!--
-      <plugin>
-      <groupId>org.scala-tools</groupId>
-      <artifactId>maven-scala-plugin</artifactId>
-      <version>${maven-scala-plugin.version}</version>
-      <executions>
-        <execution>
-        <goals>
-          <goal>compile</goal>
-          <goal>testCompile</goal>
-        </goals>
-        </execution>
-      </executions>
-      </plugin>
--->
+      <!--
+            <plugin>
+            <groupId>org.scala-tools</groupId>
+            <artifactId>maven-scala-plugin</artifactId>
+            <version>${maven-scala-plugin.version}</version>
+            <executions>
+              <execution>
+              <goals>
+                <goal>compile</goal>
+                <goal>testCompile</goal>
+              </goals>
+              </execution>
+            </executions>
+            </plugin>
+      -->
 
       <plugin>
         <groupId>net.alchim31.maven</groupId>
@@ -189,11 +304,11 @@
           <jvmArgs>
             <jvmArg>-Xms1024m</jvmArg>
             <jvmArg>-Xmx1024m</jvmArg>
-<!--
-            <jvmArg>-XX:PermSize=${PermGen}</jvmArg>
-            <jvmArg>-XX:MaxPermSize=${MaxPermGen}</jvmArg>
-            <jvmArg>-XX:ReservedCodeCacheSize=${CodeCacheSize}</jvmArg>
--->
+            <!--
+                        <jvmArg>-XX:PermSize=${PermGen}</jvmArg>
+                        <jvmArg>-XX:MaxPermSize=${MaxPermGen}</jvmArg>
+                        <jvmArg>-XX:ReservedCodeCacheSize=${CodeCacheSize}</jvmArg>
+            -->
           </jvmArgs>
           <javacArgs>
             <javacArg>-source</javacArg>
@@ -214,7 +329,7 @@
         <version>${maven-surefire-plugin.version}</version>
         <!-- Note config is repeated in scalatest config -->
         <configuration>
-            <skipTests>true</skipTests>
+          <skipTests>true</skipTests>
           <includes>
             <include>**/Test*.java</include>
             <include>**/*Test.java</include>

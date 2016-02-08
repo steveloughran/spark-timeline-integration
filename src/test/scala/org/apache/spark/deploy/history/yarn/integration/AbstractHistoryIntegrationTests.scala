@@ -27,6 +27,8 @@ import org.apache.hadoop.service.ServiceOperations
 import org.apache.hadoop.yarn.api.records.timeline.{TimelineEntity, TimelineEvent, TimelinePutResponse}
 import org.apache.hadoop.yarn.client.api.TimelineClient
 import org.apache.hadoop.yarn.server.applicationhistoryservice.ApplicationHistoryServer
+import org.json4s.JValue
+import org.json4s.jackson.JsonMethods
 
 import org.apache.spark.{SecurityManager, SparkConf}
 import org.apache.spark.deploy.history.{ApplicationHistoryProvider, FsHistoryProvider, HistoryServer}
@@ -375,6 +377,18 @@ abstract class AbstractHistoryIntegrationTests
     val body = outcome.responseBody
     assertStringsInBody(body, checks)
     body
+  }
+
+  /**
+   * Get a JSON resource. Includes a check that the content type is `application/json`
+   * @param page web UI
+   * @return the body of the response
+   */
+  protected def getJsonResource(page: URL): JValue = {
+    val outcome = createUrlConnector().execHttpOperation("GET", page, null, "")
+    logDebug(s"$page => $outcome")
+    assert(outcome.contentType.startsWith("application/json"), s"content type of $outcome")
+    JsonMethods.parse(outcome.responseBody)
   }
 
   /**
