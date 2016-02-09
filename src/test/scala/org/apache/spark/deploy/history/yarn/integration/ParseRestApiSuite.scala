@@ -17,27 +17,45 @@
 
 package org.apache.spark.deploy.history.yarn.integration
 
-import java.io.{ByteArrayInputStream, FileNotFoundException, IOException}
-import java.net.URI
-
-import scala.Predef.assert
-
-import com.sun.jersey.api.client.{ClientHandlerException, ClientResponse, UniformInterfaceException}
+import org.json4s.JValue
 import org.json4s.jackson.JsonMethods
 
-import org.apache.spark.deploy.history.yarn.rest.{JerseyBinding, UnauthorizedRequestException}
 import org.apache.spark.deploy.history.yarn.testtools.AbstractYarnHistoryTests
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
 
 class ParseRestApiSuite extends AbstractYarnHistoryTests {
   protected val PackagePath = "org/apache/spark/deploy/history/yarn/integration/"
+  val IncompleteResponse = loadToJson(PackagePath + "rest-incomplete.json")
+  val CompleteResponse = loadToJson(PackagePath + "rest-2-complete.json")
+  val MixedResponse = loadToJson(PackagePath + "rest-3-mixed.json")
 
-  test("incomplete") {
-    val r = filterJsonListing(loadToJson(PackagePath + "rest-incomplete.json"), false)
-    assert (r.size === 1, s"Wrong size of $r")
+  def expectListingSize(response: JValue, completed: Boolean, size: Int): Unit = {
+    val r = filterJsonListing(response, completed)
+    assert(r.size === size, s"Wrong size of $r from\n${JsonMethods.pretty(response)}")
   }
-  test("complete") {
-    val r = filterJsonListing(loadToJson(PackagePath + "rest-incomplete.json"), true)
-    assert (r.size === 0, s"Wrong size of $r")
+
+  test("one incomplete in incomplete results") {
+    expectListingSize(IncompleteResponse, false, 1)
   }
+
+  test("no complete in incomplete") {
+    expectListingSize(IncompleteResponse, true, 0)
+  }
+
+  test("no incomplete in complete") {
+    expectListingSize(CompleteResponse, false, 0)
+  }
+
+  test("one complete in complete") {
+    expectListingSize(CompleteResponse, true, 1)
+  }
+
+  test("one complete in mixed") {
+    expectListingSize(MixedResponse, true, 1)
+  }
+
+  test("one incomplete in mixed") {
+    expectListingSize(MixedResponse, false, 1)
+  }
+
 }

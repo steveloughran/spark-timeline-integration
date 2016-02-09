@@ -621,9 +621,11 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
     json match {
       case JNothing => Seq()
       case apps: JArray =>
-        apps.filter(app => {
+        logDebug(s"listing contains ${apps.arr.size} apps")
+        apps.arr.filter(app => {
           (app \ "attempts") match {
             case attempts: JArray =>
+              logDebug(s"app $app contains ${attempts.arr.size} attempts")
               val state = (attempts.children.head \ "completed").asInstanceOf[JBool]
               state.value == completed
             case _ => false

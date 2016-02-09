@@ -69,13 +69,13 @@ abstract class AbstractHistoryIntegrationTests
   protected val page1_flag = "&page=1"
   protected val page1_incomplete_flag = "&page=1&showIncomplete=true"
 
-  protected val attemptId1 = new StubApplicationAttemptId(applicationId, 1)
+  protected val attemptId1 = new StubApplicationAttemptId(applicationId, 111)
   protected val attemptId2 = new StubApplicationAttemptId(applicationId, 222)
   protected val attemptId3 = new StubApplicationAttemptId(applicationId, 333)
 
-  protected val attempt1SparkId = "1"
-  protected val attempt2SparkId = "2"
-  protected val attempt3SparkId = "3"
+  protected val attempt1SparkId = "spark_id_1"
+  protected val attempt2SparkId = "spark_id_2"
+  protected val attempt3SparkId = "spark_id_3"
 
   protected val no_completed_applications = "No completed applications found!"
   protected val no_incomplete_applications = "No incomplete applications found!"

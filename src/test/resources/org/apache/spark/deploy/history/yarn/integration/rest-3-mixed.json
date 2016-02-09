@@ -1,0 +1,41 @@
+[
+  {
+    "id": "application_1111_0000",
+    "name": "spark-demo",
+    "attempts": [
+      {
+        "attemptId": "application_1111_0000_0002",
+        "startTime": "2016-02-08T20:14:20.825GMT",
+        "endTime": "2016-02-08T20:14:21.825GMT",
+        "lastUpdated": "2016-02-08T20:14:21.848GMT",
+        "duration": 10,
+        "sparkUser": "hdfs",
+        "completed": true
+      },
+      {
+        "attemptId": "application_1111_0000_0001",
+        "startTime": "2016-02-08T20:12:20.825GMT",
+        "endTime": "1970-01-01T00:00:00.000GMT",
+        "lastUpdated": "2016-02-08T20:12:20.848GMT",
+        "duration": 0,
+        "sparkUser": "hdfs",
+        "completed": false
+      }
+    ]
+  },
+  {
+    "id": "application_1111_0001",
+    "name": "spark-demo_2",
+    "attempts": [
+      {
+        "attemptId": "application_1111_0001_0001",
+        "startTime": "2016-02-08T20:12:20.825GMT",
+        "endTime": "1970-01-01T00:00:00.000GMT",
+        "lastUpdated": "2016-02-08T20:12:20.848GMT",
+        "duration": 0,
+        "sparkUser": "hdfs",
+        "completed": false
+      }
+    ]
+  }
+]
