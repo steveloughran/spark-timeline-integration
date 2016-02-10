@@ -83,7 +83,7 @@ abstract class AbstractHistoryIntegrationTests
   // a list of actions to fail with
   protected var failureActions: mutable.MutableList[() => Unit] = mutable.MutableList()
 
-  val REST_APPLICATIONS = "/api/v1/applications/"
+  val REST_APPLICATIONS = "/api/v1/applications/?minDate=1970-01-01"
 
   def applicationHistoryServer: ApplicationHistoryServer = {
     _applicationHistoryServer
@@ -448,7 +448,8 @@ abstract class AbstractHistoryIntegrationTests
       completed: Boolean,
       timeout: Long): Unit = {
     def failure(outcome: Outcome, iterations: Int, timeout: Boolean): Unit = {
-      val jsonResource = getJsonResource(connector, new URL(url, REST_APPLICATIONS))
+      val jsonResource = getJsonResource(connector,
+        new URL(url, REST_APPLICATIONS))
       val listing = filterJsonListing(jsonResource, completed)
       val prettyJson = JsonMethods.pretty(jsonResource)
       fail(s"Expected list size $size got ${listing.size} in $listing from JSON $prettyJson")
