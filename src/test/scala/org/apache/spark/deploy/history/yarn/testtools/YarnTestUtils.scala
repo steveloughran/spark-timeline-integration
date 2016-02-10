@@ -558,7 +558,7 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
   }
 
   /**
-   * Wait for a specified operation to return a list of the desired size
+   * Wait for a specified operation to return a sequence of the desired size
    *
    * @param expectedSize expected size of list
    * @param message message on failure
@@ -567,10 +567,10 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
    * @tparam T list type
    * @return the list created in the last successful operation
    */
-  def awaitListSize[T](expectedSize: Int, message: String, timeout: Long,
-      operation: () => List[T]): List[T] = {
+  def awaitSequenceSize[T](expectedSize: Int, message: String, timeout: Long,
+      operation: () => Seq[T]): Seq[T] = {
     // last list fetched
-    var list: List[T] = Nil
+    var list: Seq[T] = Nil
     def probeOperation(): Outcome = {
       list = operation()
       outcomeFromBool(list.size == expectedSize)

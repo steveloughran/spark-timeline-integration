@@ -129,7 +129,8 @@ trait ExtraAssertions extends Logging with Assertions {
     assertNotNull(list, message)
     if (list.size != expectedSize) {
       // no match
-      val errorText = s"Wrong list size: expected=$expectedSize actual=${list.size}: $message"
+      val errorText = s"Wrong list size: expected=$expectedSize actual=${list.size}: $message" +
+          s" - $list"
       logError(errorText)
       list.foreach { e => logError(e.toString) }
       fail(errorText)

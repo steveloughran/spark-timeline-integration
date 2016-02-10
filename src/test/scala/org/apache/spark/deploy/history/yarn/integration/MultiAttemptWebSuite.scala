@@ -19,7 +19,6 @@ package org.apache.spark.deploy.history.yarn.integration
 
 import java.net.URL
 
-import scala.concurrent.duration._
 import scala.language.postfixOps
 
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
@@ -71,8 +70,10 @@ class MultiAttemptWebSuite extends AbstractHistoryIntegrationTests {
 
       // then look for the complete app on the web
       awaitURL(webUI, TEST_STARTUP_DELAY)
-      val connector = createUrlConnector(conf)
 
+      describe("Awaiting REST UI to show app")
+      val connector = createUrlConnector(conf)
+      awaitHistoryRestUIListSize(connector, webUI, 1, true, TEST_STARTUP_DELAY)
       val appPath = s"/history/$expectedAppId/$attempt1SparkId"
       // GET the app
       val appURL = new URL(webUI, appPath)

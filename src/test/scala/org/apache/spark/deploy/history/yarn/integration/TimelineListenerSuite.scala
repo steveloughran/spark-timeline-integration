@@ -130,7 +130,7 @@ class TimelineListenerSuite extends AbstractHistoryIntegrationTests {
   test("Last-Updated time of incompleted app") {
     describe("Last-Updated time of incompleted app")
     // listener is still not hooked up to spark context
-    historyService = startHistoryService(sc)
+    historyService = startHistoryService(sc, applicationId, Some(attemptId1))
     val timeline = historyService.timelineWebappAddress
     val listener = new YarnEventListener(sc, historyService)
     val startTime = now()
@@ -161,7 +161,7 @@ class TimelineListenerSuite extends AbstractHistoryIntegrationTests {
       queryClient.listEntities(SPARK_EVENT_ENTITY_TYPE, primaryFilter = appEndFilter).size
     }
     val headEntity = timelineEntities.head
-    assertResult(attemptId, s"no entry of id $yarnAppId in ${describeEntity(headEntity)}") {
+    assertResult(attemptId, s"no entry of attemptId $attemptId in ${describeEntity(headEntity)}") {
       headEntity.getEntityId
     }
 

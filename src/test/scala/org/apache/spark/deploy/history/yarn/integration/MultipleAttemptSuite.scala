@@ -57,7 +57,7 @@ class MultipleAttemptSuite
 
     describe("Querying history service via REST API")
 
-    val entities = awaitListSize(2,
+    val entities = awaitSequenceSize(2,
       s"number of entities of type $SPARK_EVENT_ENTITY_TYPE",
       TEST_STARTUP_DELAY,
       () => queryClient.listEntities(SPARK_EVENT_ENTITY_TYPE))

@@ -19,6 +19,7 @@ package org.apache.spark.deploy.history.yarn.integration
 
 import java.io.IOException
 import java.net.URL
+import java.util.logging.Logger
 
 import scala.collection.mutable
 
@@ -29,7 +30,6 @@ import org.apache.hadoop.yarn.api.records.timeline.{TimelineEntity, TimelineEven
 import org.apache.hadoop.yarn.client.api.TimelineClient
 import org.apache.hadoop.yarn.server.applicationhistoryservice.ApplicationHistoryServer
 import org.json4s.JValue
-import org.json4s.JsonAST.{JString, JBool, JArray, JNothing}
 import org.json4s.jackson.JsonMethods
 import org.scalatest.concurrent.Eventually
 
@@ -101,6 +101,10 @@ abstract class AbstractHistoryIntegrationTests
     // abort the tests if the server is offline
     cancelIfOffline()
     super.setup()
+    // WADL generator complains needlessly about scala introspection failures.
+    val logger =
+      Logger.getLogger("com.sun.jersey.server.wadl.generators.WadlGeneratorJAXBGrammarGenerator");
+    logger.setLevel(java.util.logging.Level.OFF);
     startTimelineClientAndAHS(sc.hadoopConfiguration)
   }
 
@@ -407,24 +411,70 @@ abstract class AbstractHistoryIntegrationTests
 
 
   /**
-   * Spin awaiting a URL to contain some text
+   * Spin awaiting the REST app listing to contain the application
    * @param connector connector to use
-   * @param url URL to probe
+   * @param url web UI
    * @param app text which must be present
-   * @param timeout timeout in mils
+   * @param completed filter completed or incomplete?
+   * @param timeout timeout in millis
    */
   def awaitHistoryRestUIContainsApp(
       connector: SpnegoUrlConnector,
       url: URL,
       app: String,
       completed: Boolean,
-      timeout: Long): String = {
-    def get: String = {
-      connector.execHttpOperation("GET", url, null, "").responseBody
+      timeout: Long): Unit = {
+    def failure(outcome: Outcome, iterations: Int, timeout: Boolean): Unit = {
+      val json = JsonMethods.pretty(getJsonResource(connector, new URL(url, REST_APPLICATIONS)))
+      fail(s"No app $app in JSON $json")
     }
+    awaitHistoryRestUISatisfiesCondition(connector, url,
+      (json) => outcomeFromBool(filterJsonListing(json, completed).contains(app)),
+    failure, timeout)
+  }
+
+  /**
+   * Spin awaiting the listing to be a specific size; fail with useful text
+   * @param connector connector to use
+   * @param url URL to probe
+   * @param size size of list
+   * @param completed filter completed or incomplete?
+   * @param timeout timeout in millis
+   */
+  def awaitHistoryRestUIListSize(
+      connector: SpnegoUrlConnector,
+      url: URL,
+      size: Int,
+      completed: Boolean,
+      timeout: Long): Unit = {
+    def failure(outcome: Outcome, iterations: Int, timeout: Boolean): Unit = {
+      val jsonResource = getJsonResource(connector, new URL(url, REST_APPLICATIONS))
+      val listing = filterJsonListing(jsonResource, completed)
+      val prettyJson = JsonMethods.pretty(jsonResource)
+      fail(s"Expected list size $size got ${listing.size} in $listing from JSON $prettyJson")
+    }
+    awaitHistoryRestUISatisfiesCondition(connector, url,
+      (json) => outcomeFromBool(filterJsonListing(json, completed).size == size),
+    failure, timeout)
+  }
+
+  /**
+   * Await the Rest UI to satisfy some condition
+   * @param connector connector to use
+   * @param url web UI
+   * @param condition condition to be met
+   * @param failure failure operation
+   * @param timeout timeout in millis
+   */
+  def awaitHistoryRestUISatisfiesCondition(
+      connector: SpnegoUrlConnector,
+      url: URL,
+      condition: JValue => Outcome ,
+      failure: (Outcome, Int, Boolean) => Unit,
+      timeout: Long): Unit = {
     def probe(): Outcome = {
       try {
-        outcomeFromBool(listRestAPIApplications(connector, url, completed).contains(app))
+        condition(getJsonResource(connector, new URL(url, REST_APPLICATIONS)))
       } catch {
         case ioe: IOException =>
           Retry()
@@ -432,15 +482,8 @@ abstract class AbstractHistoryIntegrationTests
           throw ex
       }
     }
-    def failure(outcome: Outcome, iterations: Int, timeout: Boolean): Unit = {
-      val json = JsonMethods.pretty(getJsonResource(connector, new URL(url, REST_APPLICATIONS)))
-      fail(s"No app $app in JSON $json")
-    }
-
     spinForState(s"Awaiting a response from URL $url",
       interval = 50, timeout = timeout, probe = probe, failure = failure)
-
-    get
   }
 
   /**

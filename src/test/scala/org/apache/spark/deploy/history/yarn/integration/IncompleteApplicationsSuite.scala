@@ -101,15 +101,10 @@ class IncompleteApplicationsSuite extends AbstractHistoryIntegrationTests {
 
       // and look for the complete app
       awaitURL(webUI, EVENT_PROCESSED_TIMEOUT)
-      val completeBody = awaitURLDoesNotContainText(connector, webUI,
-        no_completed_applications, EVENT_PROCESSED_TIMEOUT,
-        s"Awaiting completed applications in the web UI listing $webUI")
-      logDebug(completeBody)
-      // look for the link
-      assertContains(completeBody, s"$expectedAppId</a>",
-        "expecting app listed in completed page")
-      assertContains(completeBody, s"$expectedAppId/$sparkAttemptId",
-        "expecting app attempt URL listed in completed page")
+      awaitSequenceSize(1,
+        s"number of applications",
+        TEST_STARTUP_DELAY,
+        () => listRestAPIApplications(connector, webUI, true))
 
       val appPath = s"/history/$expectedAppId/$sparkAttemptId"
       // GET the app
