@@ -151,7 +151,7 @@ private[spark] object YarnTimelineUtils extends Logging {
       if (json.length < limit) {
         json
       } else {
-         json.substring(0, limit) + " ... }"
+        json.substring(0, limit) + " ... }"
       }
     }
     logDebug(s"toSparkEvent payload is $jsonToString")
@@ -208,10 +208,10 @@ private[spark] object YarnTimelineUtils extends Logging {
       toSparkEvent(event).toString
     } catch {
       case _: MappingException =>
-       "(cannot convert event details to spark exception)"
+        "(cannot convert event details to spark exception)"
     }
     s"${event.getEventType()} @ ${new Date(event.getTimestamp())}" +
-      s"\n    $sparkEventDetails"
+        s"\n    $sparkEventDetails"
   }
 
   /**
@@ -289,7 +289,7 @@ private[spark] object YarnTimelineUtils extends Logging {
     var filterElements = ""
     for ((k, v) <- primaryFilters) {
       filterElements = filterElements +
-        " filter " + k + ": [ " + v.asScala.foldLeft("")((s, o) => s + o.toString + " ") + "]\n"
+          " filter " + k + ": [ " + v.asScala.foldLeft("")((s, o) => s + o.toString + " ") + "]\n"
     }
     val events = eventDetails(entity)
     header + "\n" + filterElements + events
@@ -364,10 +364,10 @@ private[spark] object YarnTimelineUtils extends Logging {
     val isHttps = YarnConfiguration.useHttps(conf)
     val address = if (isHttps) {
       conf.get(YarnConfiguration.TIMELINE_SERVICE_WEBAPP_HTTPS_ADDRESS,
-                YarnConfiguration.DEFAULT_TIMELINE_SERVICE_WEBAPP_HTTPS_ADDRESS)
+        YarnConfiguration.DEFAULT_TIMELINE_SERVICE_WEBAPP_HTTPS_ADDRESS)
     } else {
       conf.get(YarnConfiguration.TIMELINE_SERVICE_WEBAPP_ADDRESS,
-                YarnConfiguration.DEFAULT_TIMELINE_SERVICE_WEBAPP_ADDRESS)
+        YarnConfiguration.DEFAULT_TIMELINE_SERVICE_WEBAPP_ADDRESS)
     }
     val protocol = if (isHttps) "https://" else "http://"
     require(address != null, s"No timeline service defined")
@@ -403,7 +403,7 @@ private[spark] object YarnTimelineUtils extends Logging {
    */
   def timelineServiceEnabled(conf: Configuration): Boolean = {
     conf.getBoolean(YarnConfiguration.TIMELINE_SERVICE_ENABLED,
-                    YarnConfiguration.DEFAULT_TIMELINE_SERVICE_ENABLED)
+      YarnConfiguration.DEFAULT_TIMELINE_SERVICE_ENABLED)
   }
 
   /**
@@ -447,8 +447,8 @@ private[spark] object YarnTimelineUtils extends Logging {
    */
   def describeError(error: TimelinePutError): String = {
     s"Entity ID=${error.getEntityId()}; Entity type=${error.getEntityType}" +
-    s" Error code ${error.getErrorCode}" +
-    s": ${timelineErrorCodeToString(error.getErrorCode)}"
+        s" Error code ${error.getErrorCode}" +
+        s": ${timelineErrorCodeToString(error.getErrorCode)}"
   }
 
   /**
@@ -458,7 +458,7 @@ private[spark] object YarnTimelineUtils extends Logging {
    * @param response response to describe
    * @return text for diagnostics
    */
-  def describePutResponse(response: TimelinePutResponse) : String = {
+  def describePutResponse(response: TimelinePutResponse): String = {
     val responseErrs = response.getErrors
     if (responseErrs != null) {
       val errors = mutable.MutableList(s"TimelinePutResponse with ${responseErrs.size()} errors")
@@ -484,7 +484,7 @@ private[spark] object YarnTimelineUtils extends Logging {
    * @return the value or the string [[UNDEFINED_FIELD]] if not
    * @throws Exception if the field is not found
    */
-  def field(en: TimelineEntity, name: String) : Object = {
+  def field(en: TimelineEntity, name: String): Object = {
     fieldOption(en, name).getOrElse(UNDEFINED_FIELD)
   }
 
@@ -496,7 +496,7 @@ private[spark] object YarnTimelineUtils extends Logging {
    * @return the value
    * @throws Exception if the field is not found
    */
-  def fieldOption(en: TimelineEntity, name: String) : Option[Object] = {
+  def fieldOption(en: TimelineEntity, name: String): Option[Object] = {
     Option(en.getOtherInfo.get(name))
   }
 
@@ -509,7 +509,7 @@ private[spark] object YarnTimelineUtils extends Logging {
    */
   def stringFieldOption(en: TimelineEntity, name: String): Option[String] = {
     val value = en.getOtherInfo.get(name)
-    if (value != null ) {
+    if (value != null) {
       Some(value.toString)
     } else {
       None
@@ -525,7 +525,7 @@ private[spark] object YarnTimelineUtils extends Logging {
    * @param defval default value; default is 0L
    * @return the value
    */
-  def numberField(en: TimelineEntity, name: String, defval: Long = 0L) : Number = {
+  def numberField(en: TimelineEntity, name: String, defval: Long = 0L): Number = {
     try {
       fieldOption(en, name) match {
         case Some(n: Number) => n
@@ -556,7 +556,7 @@ private[spark] object YarnTimelineUtils extends Logging {
    * @param unset string to use if timestamp == 0
    * @return a string for messages
    */
-  def humanDateCurrentTZ(timestamp: Long, unset: String) : String = {
+  def humanDateCurrentTZ(timestamp: Long, unset: String): String = {
     if (timestamp == 0) {
       unset
     } else {
@@ -572,7 +572,7 @@ private[spark] object YarnTimelineUtils extends Logging {
    * @param unset string to use if timestamp == 0
    * @return a string for messages
    */
-  def timeShort(timestamp: Long, unset: String) : String = {
+  def timeShort(timestamp: Long, unset: String): String = {
     if (timestamp == 0) {
       unset
     } else {
@@ -769,4 +769,39 @@ private[spark] object YarnTimelineUtils extends Logging {
     val addr = new InetSocketAddress(host, port)
     endpoint
   }
+
+  /**
+   * Returns the timeline service version. It does not check whether the
+   * timeline service itself is enabled.
+   *
+   * @param conf the configuration
+   * @return the timeline service version as a float.
+   */
+  def getTimelineServiceVersion (conf: Configuration): Float = {
+    conf.getFloat(YarnConfiguration.TIMELINE_SERVICE_VERSION,
+      YarnConfiguration.DEFAULT_TIMELINE_SERVICE_VERSION);
+  }
+
+
+  def timelineServiceV1_5Enabled(conf: Configuration): Boolean = {
+    timelineServiceEnabled(conf) &&
+        Math.abs(getTimelineServiceVersion(conf) - 1.5) < 0.00001;
+  }
+  /*
+
+
+
+  /**
+   * Returns whether the timeline service v.1.5 is enabled via configuration.
+   *
+   * @param conf the configuration
+   * @return whether the timeline service v.1.5 is enabled. V.1.5 refers to a
+   * version equal to 1.5.
+   */
+  public static boolean timelineServiceV1_5Enabled(Configuration conf) {
+    return timelineServiceEnabled(conf) &&
+        Math.abs(getTimelineServiceVersion(conf) - 1.5) < 0.00001;
+  }
+
+   */
 }
