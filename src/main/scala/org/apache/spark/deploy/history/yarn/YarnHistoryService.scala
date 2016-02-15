@@ -28,7 +28,7 @@ import scala.collection.mutable
 import com.codahale.metrics.{Metric, Counter, MetricRegistry, Timer}
 import org.apache.hadoop.security.UserGroupInformation
 import org.apache.hadoop.yarn.api.records.{ApplicationAttemptId, ApplicationId}
-import org.apache.hadoop.yarn.api.records.timeline.{TimelineDomain, TimelineEntity, TimelineEvent}
+import org.apache.hadoop.yarn.api.records.timeline.{TimelineDomain, TimelineEntity, TimelineEntityGroupId, TimelineEvent}
 import org.apache.hadoop.yarn.client.api.TimelineClient
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 
@@ -110,6 +110,12 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
   /** YARN timeline client. */
   private var _timelineClient: Option[TimelineClient] = None
 
+  /** ATS v 1.5 group ID */
+  private var groupId: TimelineEntityGroupId = null
+
+  /** Does the the timeline server support v 1.5 APIs */
+  private var timelineVersion1_5 = false
+
   /** Registered event listener. */
   private var listener: Option[YarnEventListener] = None
 
@@ -187,7 +193,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
 
   /**
    * Create a timeline client and start it. This does not update the
-   * `timelineClient` field, though it does verify that the field
+   * `_timelineClient` field, though it does verify that the field
    * is unset.
    *
    * The method is private to the package so that tests can access it, which
@@ -373,18 +379,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
 
     // set up the timeline service, unless it's been disabled for testing
     if (timelineServiceEnabled) {
-      timelineWebappAddress = getTimelineEndpoint(config)
-
-      logInfo(s"Starting $this")
-      logInfo(s"Spark events will be published to the Timeline at $timelineWebappAddress")
-      _timelineClient = Some(createTimelineClient())
-      domainId = createTimelineDomain()
-      // declare that the processing is started
-      queueStopped.set(false)
-      val thread = new Thread(new EntityPoster(), "EventPoster")
-      entityPostThread = Some(thread)
-      thread.setDaemon(true)
-      thread.start()
+      startTimelineReporter()
     } else {
       logInfo("Timeline service is disabled")
     }
@@ -393,6 +388,27 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
     } else {
       logInfo(s"History Service is not listening for events: $this")
     }
+  }
+
+  /**
+   * Start the timeline reporter: instantiate the client, start the background
+   * entity posting thread.
+   */
+  def startTimelineReporter(): Unit = {
+    timelineWebappAddress = getTimelineEndpoint(config)
+
+    logInfo(s"Starting $this")
+    logInfo(s"Spark events will be published to the Timeline at $timelineWebappAddress")
+    _timelineClient = Some(createTimelineClient())
+    timelineVersion1_5 = YarnConfiguration.timelineServiceV1_5Enabled(config)
+    groupId = TimelineEntityGroupId.newInstance(applicationId, SPARK_EVENT_GROUP_TYPE)
+    domainId = createTimelineDomain()
+    // declare that the processing is started
+    queueStopped.set(false)
+    val thread = new Thread(new EntityPoster(), "EventPoster")
+    entityPostThread = Some(thread)
+    thread.setDaemon(true)
+    thread.start()
   }
 
   /**
@@ -791,7 +807,11 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
     val timeContext = metrics.postOperationTimer.time()
     metrics.entityPostAttempts.inc()
     try {
-      val response = timelineClient.putEntities(entity)
+      val response = if (timelineVersion1_5) {
+        timelineClient.putEntities(attemptId.orNull, groupId, entity);
+      } else {
+        timelineClient.putEntities(entity);
+      }
       val errors = response.getErrors
       if (errors.isEmpty) {
         logDebug(s"entity successfully posted")
@@ -1155,6 +1175,11 @@ private[spark] object YarnHistoryService {
    * Name of the entity type used to declare spark Applications.
    */
   val SPARK_EVENT_ENTITY_TYPE = "spark_event_v01"
+
+  /**
+   * Name of the entity type used to declare spark Applications.
+   */
+  val SPARK_EVENT_GROUP_TYPE = "spark_event_group_v01"
 
   /**
    * Domain ID.
