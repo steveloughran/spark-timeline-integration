@@ -19,11 +19,11 @@ package org.apache.spark.deploy.history.yarn.integration
 
 import org.apache.hadoop.yarn.api.records.{ApplicationReport, YarnApplicationState}
 
+import org.apache.spark.deploy.history.LoadedAppUI
 import org.apache.spark.deploy.history.yarn.server.{TimelineApplicationHistoryInfo, YarnHistoryProvider}
 import org.apache.spark.deploy.history.yarn.server.YarnProviderUtils._
 import org.apache.spark.deploy.history.yarn.testtools.AbstractYarnHistoryTests
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
-import org.apache.spark.ui.SparkUI
 
 /**
  * Basic lifecycle/method calls on the history provider.
@@ -201,7 +201,7 @@ class YarnHistoryProviderSuite extends AbstractYarnHistoryTests with Integration
    * @param appid application ID
    * @return the result of <code>provider.getAppUI</code>
    */
-  def getAppUI(appid: String, attemptId: Option[String] = None): Option[SparkUI] = {
+  def getAppUI(appid: String, attemptId: Option[String] = None): Option[LoadedAppUI] = {
     logDebug(s"GET appID =$appid attemptId=$attemptId" )
     provider.getAppUI(appid, attemptId)
   }

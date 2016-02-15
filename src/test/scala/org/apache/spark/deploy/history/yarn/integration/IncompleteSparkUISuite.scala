@@ -19,6 +19,12 @@ package org.apache.spark.deploy.history.yarn.integration
 
 import java.net.URL
 
+import scala.concurrent.duration._
+import scala.language.postfixOps
+
+import org.scalatest.concurrent.Eventually
+
+import org.apache.spark.SparkConf
 import org.apache.spark.deploy.history.yarn.YarnEventListener
 import org.apache.spark.deploy.history.yarn.server.YarnHistoryProvider
 import org.apache.spark.deploy.history.yarn.server.YarnProviderUtils._
@@ -26,9 +32,10 @@ import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
 import org.apache.spark.util.Utils
 
 /**
- * test to see that incomplete spark UIs are handled
+ * test to see that incomplete spark UIs are handled, with the UI being updated.
  */
-class IncompleteSparkUISuite extends AbstractHistoryIntegrationTests {
+class IncompleteSparkUISuite extends AbstractHistoryIntegrationTests with Eventually {
+
 
   test("incomplete UI must not be cached") {
     def submitAndCheck(webUI: URL, provider: YarnHistoryProvider): Unit = {
@@ -112,17 +119,32 @@ class IncompleteSparkUISuite extends AbstractHistoryIntegrationTests {
       assertContains(finalAppUIPage, APP_NAME, s"Application name $APP_NAME not found" +
           s" at $attemptURL")
 
-/* DISABLED. SPARK-7889
-      // the active jobs section must no longer exist
-      assertDoesNotContain(finalAppUIPage, activeJobsMarker,
-        s"Web UI $attemptURL still declared active")
+      // SPARK-7889
 
-      // look for the completed job
-      assertContains(finalAppUIPage, completedJobsMarker,
-        s"Web UI $attemptURL does not declare completed jobs")
-*/
+      val stdTimeout = timeout(10 seconds)
+      val stdInterval = interval(100 milliseconds)
+      eventually(stdTimeout, stdInterval) {
+        // the active jobs section must no longer exist
+        assertDoesNotContain(finalAppUIPage, activeJobsMarker,
+          s"Web UI $attemptURL still declared active in $sparkHistoryServer")
+
+        // look for the completed job
+        assertContains(finalAppUIPage, completedJobsMarker,
+          s"Web UI $attemptURL does not declare completed jobs in $sparkHistoryServer")
+      }
+
     }
     webUITest("submit and check", submitAndCheck)
   }
 
+  /**
+   * Set up base configuratin for integration tests, including
+   * classname bindings in publisher & provider, refresh intervals and a port for the UI
+   * @param sparkConf spark configuration
+   * @return the expanded configuration
+   */
+  override def setupConfiguration(sparkConf: SparkConf): SparkConf = {
+    super.setupConfiguration(sparkConf)
+    sparkConf.set(YarnHistoryProvider.OPTION_BACKGROUND_REFRESH_INTERVAL, "1s")
+  }
 }

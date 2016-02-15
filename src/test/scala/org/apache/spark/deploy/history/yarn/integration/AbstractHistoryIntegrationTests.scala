@@ -589,8 +589,8 @@ abstract class AbstractHistoryIntegrationTests
   def getAppUI(provider: YarnHistoryProvider,
       appId: String,
       attemptId: Option[String]): SparkUI = {
-    val ui = provider.getAppUI(appId, attemptId)
-    assertSome(ui, s"Failed to retrieve App UI under ID $appId attempt $attemptId from $provider")
-    ui.get
+    val loadedAppUI = provider.getAppUI(appId, attemptId)
+    assertSome(loadedAppUI, s"Failed to retrieve App UI under ID $appId attempt $attemptId from $provider")
+    loadedAppUI.get.ui
   }
 }

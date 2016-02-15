@@ -36,7 +36,7 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration
 
 import org.apache.spark.{Logging, SecurityManager, SparkConf, SparkException}
 import org.apache.spark.deploy.SparkHadoopUtil
-import org.apache.spark.deploy.history.{LoadedAppUI, ApplicationHistoryProvider, HistoryServer}
+import org.apache.spark.deploy.history.{ApplicationHistoryProvider, HistoryServer, LoadedAppUI}
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
 import org.apache.spark.deploy.history.yarn.{ExtendedMetricsSource, YarnTimelineUtils}
 import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
@@ -777,7 +777,6 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
         ui.getSecurityManager.setViewAcls(appListener.sparkUser.getOrElse("<Not Started>"),
           appListener.viewAcls.getOrElse(""))
         val latestState = toApplicationHistoryInfo(attemptEntity).attempts.head
-
         Some(LoadedAppUI(ui,
           yarnUpdateProbe(appId, attemptId, latestState.version, latestState.lastUpdated)
         ))
