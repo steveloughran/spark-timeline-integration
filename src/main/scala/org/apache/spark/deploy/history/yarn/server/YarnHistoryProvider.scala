@@ -36,7 +36,7 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration
 
 import org.apache.spark.{Logging, SecurityManager, SparkConf, SparkException}
 import org.apache.spark.deploy.SparkHadoopUtil
-import org.apache.spark.deploy.history.{ApplicationHistoryProvider, HistoryServer}
+import org.apache.spark.deploy.history.{LoadedAppUI, ApplicationHistoryProvider, HistoryServer}
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
 import org.apache.spark.deploy.history.yarn.{ExtendedMetricsSource, YarnTimelineUtils}
 import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
@@ -705,7 +705,7 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
    * @param attemptId The application attempt ID (or `None` if there is no attempt ID).
    * @return The application's UI, or `None` if application is not found.
    */
-  override def getAppUI(appId: String, attemptId: Option[String]): Option[SparkUI] = {
+  override def getAppUI(appId: String, attemptId: Option[String]): Option[LoadedAppUI] = {
 
     logInfo(s"Request UI with appId $appId attempt $attemptId")
     if (!enabled) {
@@ -776,7 +776,11 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
         ui.getSecurityManager.setAdminAcls(appListener.adminAcls.getOrElse(""))
         ui.getSecurityManager.setViewAcls(appListener.sparkUser.getOrElse("<Not Started>"),
           appListener.viewAcls.getOrElse(""))
-        Some(ui)
+        val latestState = toApplicationHistoryInfo(attemptEntity).attempts.head
+
+        Some(LoadedAppUI(ui,
+          yarnUpdateProbe(appId, attemptId, latestState.version, latestState.lastUpdated)
+        ))
       } catch {
 
         case e: FileNotFoundException =>
@@ -944,6 +948,27 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
       completeAppsFromYARN(apps, listYarnSparkApplications(), now(), DEFAULT_LIVENESS_WINDOW_I)
     } else {
       apps
+    }
+  }
+
+  /**
+   * (Curried) update probe for attempts
+   * @param version version field off entity (if found)
+   * @param updated last updated field off entity (if found)
+   */
+  def yarnUpdateProbe(
+      appId: String,
+      attemptId: Option[String],
+      version: Long,
+      updated: Long)(): Boolean = {
+    val (foundApp, attempt, attempts) = getApplications.lookupAttempt(appId, attemptId)
+    attempt match {
+      case None =>
+        logDebug(s"Application Attempt $appId/$attemptId not found")
+        false
+      case Some(a) =>
+        logDebug(s"attempt version =${a.version} in $a")
+        a.version > version
     }
   }
 
