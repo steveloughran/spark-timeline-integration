@@ -40,21 +40,20 @@ class IncompleteSparkUISuite extends AbstractHistoryIntegrationTests with Eventu
   test("incomplete UI must not be cached") {
     def submitAndCheck(webUI: URL, provider: YarnHistoryProvider): Unit = {
       val connector = createUrlConnector()
-      val incompleteAppsURL = new URL(webUI, "/?" + incomplete_flag)
-      def listIncompleteApps: String = {
-        connector.execHttpOperation("GET", incompleteAppsURL, null, "").responseBody
-      }
+      awaitHistoryRestUIListSize(connector, webUI, 0, false, TEST_STARTUP_DELAY)
+      awaitHistoryRestUIListSize(connector, webUI, 0, true, TEST_STARTUP_DELAY)
+
+
       historyService = startHistoryService(sc)
+      val yarnAttemptId = attemptId.toString
       val listener = new YarnEventListener(sc, historyService)
-      // initial view has no incomplete applications
-      assertContains(listIncompleteApps, no_incomplete_applications)
 
       val startTime = now()
 
       val started = appStartEvent(startTime,
         sc.applicationId,
         Utils.getCurrentUserName(),
-        None)
+        Some(yarnAttemptId))
       listener.onApplicationStart(started)
       val jobId = 2
       listener.onJobStart(jobStartEvent(startTime + 1 , jobId))
@@ -64,15 +63,11 @@ class IncompleteSparkUISuite extends AbstractHistoryIntegrationTests with Eventu
       // listing
       awaitApplicationListingSize(provider, 1, TEST_STARTUP_DELAY)
 
-      // here we can do a GET of the application history and expect to see something incomplete
+      val webAttemptId = yarnAttemptId
+      val webAppId = historyService.applicationId.toString
 
       // check for work in progress
-      awaitURLDoesNotContainText(connector, incompleteAppsURL,
-        no_completed_applications, TEST_STARTUP_DELAY, "expecting incomplete app listed")
-
-      val yarnAttemptId = attemptId.toString
-      val webAttemptId = "1"
-      val webAppId = historyService.applicationId.toString
+      awaitHistoryRestUIContainsApp(connector, webUI, webAppId, false, TEST_STARTUP_DELAY)
 
       val attemptPath = s"/history/$webAppId/$webAttemptId"
       // GET the app
@@ -93,15 +88,8 @@ class IncompleteSparkUISuite extends AbstractHistoryIntegrationTests with Eventu
 
       // spin for a refresh event
       awaitRefreshExecuted(provider, true, TEST_STARTUP_DELAY)
-
-      // root web UI declares it complete
-      awaitURLDoesNotContainText(connector, webUI,
-        no_completed_applications, TEST_STARTUP_DELAY,
-        s"expecting application listed as completed in $historyService")
-
-      // final view has no incomplete applications
-      assertContains(listIncompleteApps, no_incomplete_applications,
-        s"incomplete applications still in list view in $historyService")
+      awaitHistoryRestUIContainsApp(connector, webUI, webAppId, true, TEST_STARTUP_DELAY)
+      awaitHistoryRestUIListSize(connector, webUI, 0, false, TEST_STARTUP_DELAY)
 
       // the underlying timeline entity
       val entity = provider.getTimelineEntity(yarnAttemptId)
@@ -118,8 +106,6 @@ class IncompleteSparkUISuite extends AbstractHistoryIntegrationTests with Eventu
       val finalAppUIPage = connector.execHttpOperation("GET", attemptURL, null, "").responseBody
       assertContains(finalAppUIPage, APP_NAME, s"Application name $APP_NAME not found" +
           s" at $attemptURL")
-
-      // SPARK-7889
 
       val stdTimeout = timeout(10 seconds)
       val stdInterval = interval(100 milliseconds)

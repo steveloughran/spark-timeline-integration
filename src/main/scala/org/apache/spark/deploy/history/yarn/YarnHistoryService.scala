@@ -353,6 +353,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
     val appId = binding.applicationId
     val attemptId = binding.attemptId
     require(context != null, "Null context parameter")
+    logDebug(s"Starting YarnHistoryService with appID $appId, attempt $attemptId ")
     bindToYarnApplication(appId, attemptId)
     this.sparkContext = context
     this.config = new YarnConfiguration(context.hadoopConfiguration)

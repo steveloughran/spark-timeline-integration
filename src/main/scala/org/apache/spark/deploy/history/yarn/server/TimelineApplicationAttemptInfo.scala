@@ -32,6 +32,8 @@ import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
  * @param sparkUser user
  * @param completed flag true if completed
  * @param entityId ID of the YARN timeline server entity containing the data
+ * @param sparkAttemptId spark attempt id as saved on the metadata; null means client-side driver
+ * @param version spark version as saved on the metadata
  */
 private[spark] class TimelineApplicationAttemptInfo(
     attemptId: Option[String],

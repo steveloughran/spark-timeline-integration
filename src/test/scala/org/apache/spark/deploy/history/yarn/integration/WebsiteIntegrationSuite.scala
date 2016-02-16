@@ -37,18 +37,6 @@ import org.apache.spark.util.Utils
  */
 class WebsiteIntegrationSuite extends AbstractHistoryIntegrationTests {
 
-  test("Instantiate HistoryProvider") {
-    val provider = createHistoryProvider(sc.conf)
-    provider.stop()
-  }
-
-  test("WebUI hooked up") {
-    def probeEmptyWebUIVoid(webUI: URL, provider: YarnHistoryProvider): Unit = {
-      probeEmptyWebUI(webUI, provider)
-    }
-    webUITest("WebUI hooked up", probeEmptyWebUIVoid)
-  }
-
   test("Get the web UI of a completed application") {
     def submitAndCheck(webUI: URL, provider: YarnHistoryProvider): Unit = {
 

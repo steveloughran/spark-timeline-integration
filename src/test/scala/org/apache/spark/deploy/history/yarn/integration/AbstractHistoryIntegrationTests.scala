@@ -65,14 +65,6 @@ abstract class AbstractHistoryIntegrationTests
   protected var historyService: YarnHistoryService = _
   protected var sparkHistoryServer: HistoryServer = _
 
-  protected val incomplete_flag = "&showIncomplete=true"
-  protected val page1_flag = "&page=1"
-  protected val page1_incomplete_flag = "&page=1&showIncomplete=true"
-
-  protected val attemptId1 = new StubApplicationAttemptId(applicationId, 111)
-  protected val attemptId2 = new StubApplicationAttemptId(applicationId, 222)
-  protected val attemptId3 = new StubApplicationAttemptId(applicationId, 333)
-
   protected val attempt1SparkId = "spark_id_1"
   protected val attempt2SparkId = "spark_id_2"
   protected val attempt3SparkId = "spark_id_3"
@@ -367,7 +359,6 @@ abstract class AbstractHistoryIntegrationTests
   def probeEmptyWebUI(webUI: URL, provider: YarnHistoryProvider): String = {
     val body: String = getHtmlPage(webUI,
        "<title>History Server</title>"
-        :: no_completed_applications
         :: YarnHistoryProvider.KEY_PROVIDER_NAME
         :: YarnHistoryProvider.PROVIDER_DESCRIPTION
         :: Nil)
@@ -408,7 +399,6 @@ abstract class AbstractHistoryIntegrationTests
     logDebug(s"${JsonMethods.pretty(json)}")
     filterJsonListing(json, completed)
   }
-
 
   /**
    * Spin awaiting the REST app listing to contain the application

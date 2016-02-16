@@ -19,12 +19,11 @@ package org.apache.spark.deploy.history.yarn.integration
 
 import java.net.URL
 
-import org.json4s.jackson.JsonMethods
-
 import org.apache.spark.deploy.history.yarn.{YarnEventListener, YarnHistoryService}
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
 import org.apache.spark.deploy.history.yarn.server.YarnHistoryProvider
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
+import org.apache.spark.scheduler.SparkListenerApplicationEnd
 import org.apache.spark.util.Utils
 
 /**
@@ -40,8 +39,6 @@ class IncompleteApplicationsSuite extends AbstractHistoryIntegrationTests {
   test("Get the web UI of an incomplete application") {
     def submitAndCheck(webUI: URL, provider: YarnHistoryProvider): Unit = {
       val connector = createUrlConnector()
-      val incompleteURL = new URL(webUI, "/?" + incomplete_flag)
-      awaitURL(incompleteURL, TEST_STARTUP_DELAY)
 
       historyService = startHistoryService(sc, applicationId, Some(attemptId1))
       val timeline = historyService.timelineWebappAddress
@@ -49,13 +46,15 @@ class IncompleteApplicationsSuite extends AbstractHistoryIntegrationTests {
 
       listRestAPIApplications(connector, webUI, false) should have size 0
       val startTime = now()
-      val expectedAppId = historyService.applicationId.toString
+      val expectedAppId = applicationId.toString
       val attemptId = attemptId1.toString
-      val sparkAttemptId = "1"
+      val sparkAttemptId = attemptId
+      val appName = "Incompleted"
       val started = appStartEvent(startTime,
         expectedAppId,
         Utils.getCurrentUserName(),
-        Some(sparkAttemptId))
+        Some(sparkAttemptId),
+        appName)
       listener.onApplicationStart(started)
       val jobId = 2
       listener.onJobStart(jobStartEvent(startTime + 1, jobId))
@@ -70,18 +69,13 @@ class IncompleteApplicationsSuite extends AbstractHistoryIntegrationTests {
       val queryClient = createTimelineQueryClient()
 
       // check for work in progress
-      val incompleteApplications = listRestAPIApplications(connector, webUI, false)
-      if (incompleteApplications.size != 1) {
-        fail(s"Wrong #of applications ($incompleteApplications) in "
-            + JsonMethods.pretty(getJsonResource(connector, new URL(webUI, REST_APPLICATIONS))))
-      }
-      incompleteApplications should have size 1
-
+      awaitHistoryRestUIContainsApp(connector, webUI, expectedAppId, false, EVENT_PROCESSED_TIMEOUT)
 
       logInfo("Ending job and application")
       // job completion event
       listener.onJobEnd(jobSuccessEvent(startTime + 1, jobId))
       // stop the app
+      listener.onApplicationEnd(SparkListenerApplicationEnd(now()))
       historyService.stop()
       awaitEmptyQueue(historyService, EVENT_PROCESSED_TIMEOUT)
 
@@ -99,12 +93,11 @@ class IncompleteApplicationsSuite extends AbstractHistoryIntegrationTests {
       // listing
       awaitApplicationListingSize(provider, 1, EVENT_PROCESSED_TIMEOUT)
 
+      // look for the app going off the incomplete list
+      awaitHistoryRestUIListSize(connector, webUI, 0, false, EVENT_PROCESSED_TIMEOUT)
       // and look for the complete app
-      awaitURL(webUI, EVENT_PROCESSED_TIMEOUT)
-      awaitSequenceSize(1,
-        s"number of applications",
-        TEST_STARTUP_DELAY,
-        () => listRestAPIApplications(connector, webUI, true))
+      awaitHistoryRestUIListSize(connector, webUI, 1, true, EVENT_PROCESSED_TIMEOUT)
+      awaitHistoryRestUIContainsApp(connector, webUI, expectedAppId, true, EVENT_PROCESSED_TIMEOUT)
 
       val appPath = s"/history/$expectedAppId/$sparkAttemptId"
       // GET the app
@@ -112,7 +105,7 @@ class IncompleteApplicationsSuite extends AbstractHistoryIntegrationTests {
       val appUI = connector.execHttpOperation("GET", appURL, null, "")
       val appUIBody = appUI.responseBody
       logInfo(s"Application\n$appUIBody")
-      assertContains(appUIBody, APP_NAME, "application name in app body")
+      assertContains(appUIBody, appName, "application name in app body")
       // look for the completed job
       assertContains(appUIBody, completedJobsMarker, "expected to list completed jobs")
 

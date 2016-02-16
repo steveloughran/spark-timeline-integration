@@ -61,7 +61,7 @@ class YarnProviderUtilsSuite extends SparkFunSuite with Logging
   }
 
   val yarnAppId = new StubApplicationId(5, 0)
-  val yarnAttemptId = new StubApplicationAttemptId(yarnAppId, 1)
+  val yarnAttemptId = new StubApplicationAttemptId(yarnAppId, 5555)
 
   val h12 = historyInfo("h12", 1, 2, true)
   val h22 = historyInfo("h22", 2, 2, true)
@@ -283,9 +283,9 @@ class YarnProviderUtilsSuite extends SparkFunSuite with Logging
   }
 
   test("MergeHistoryEventsIdNone") {
-    val one_1 = new TimelineApplicationHistoryInfo("1", "one", none_incomplete :: Nil)
-    val one_2 = new TimelineApplicationHistoryInfo("1", "one", none_completed :: Nil)
-    val one_0 = new TimelineApplicationHistoryInfo("1", "one", Nil)
+    val one_1 = new TimelineApplicationHistoryInfo("id_1", "one", none_incomplete :: Nil)
+    val one_2 = new TimelineApplicationHistoryInfo("id_1", "one", none_completed :: Nil)
+    val one_0 = new TimelineApplicationHistoryInfo("id_1", "one", Nil)
   }
 
   test("merge-results-None-attemptId-incomplete-first") {

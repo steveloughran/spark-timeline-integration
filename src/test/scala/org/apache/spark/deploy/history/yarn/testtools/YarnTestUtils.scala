@@ -257,7 +257,10 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
   }
 
   val applicationId: ApplicationId = new StubApplicationId(0, 1111L)
-  val attemptId: ApplicationAttemptId = new StubApplicationAttemptId(applicationId, 1)
+  val attemptId: ApplicationAttemptId = new StubApplicationAttemptId(applicationId, 0)
+  val attemptId1 = new StubApplicationAttemptId(applicationId, 111)
+  val attemptId2 = new StubApplicationAttemptId(applicationId, 222)
+  val attemptId3 = new StubApplicationAttemptId(applicationId, 333)
   val applicationStart = appStartEventWithAttempt(now(), applicationId.toString, "bob", attemptId)
   val applicationEnd = SparkListenerApplicationEnd(now() + 60000)
 

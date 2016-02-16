@@ -58,7 +58,8 @@ class YarnHistoryProviderWindowSuite
       assert(!historyService.listening, s"listening $historyService")
       assert(historyService.bondedToATS, s"not bonded to ATS: $historyService")
       // post in an app start
-      val start1 = appStartEvent(start1Time, appId1, user, Some("1"))
+      val start1 = appStartEvent(start1Time, appId1, user, Some("1111"))
+
       enqueue(start1)
       flushHistoryServiceToSuccess(historyService)
 
@@ -71,7 +72,7 @@ class YarnHistoryProviderWindowSuite
       Some(appReport2.getCurrentApplicationAttemptId))
 
 
-      val start2 = appStartEvent(start2Time, appId2, user, Some("1"))
+      val start2 = appStartEvent(start2Time, appId2, user, Some("2222"))
       history2.enqueue(start2)
       val end2Time = start2Time + minute
       val end2 = appStopEvent(end2Time)
