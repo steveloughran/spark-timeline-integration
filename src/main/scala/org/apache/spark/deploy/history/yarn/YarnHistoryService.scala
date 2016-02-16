@@ -111,7 +111,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
   private var _timelineClient: Option[TimelineClient] = None
 
   /** ATS v 1.5 group ID */
-  private var groupId: TimelineEntityGroupId = null
+  private var groupId: Option[TimelineEntityGroupId] = None
 
   /** Does the the timeline server support v 1.5 APIs */
   private var timelineVersion1_5 = false
@@ -399,11 +399,18 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
     timelineWebappAddress = getTimelineEndpoint(config)
 
     logInfo(s"Starting $this")
-    logInfo(s"Spark events will be published to the Timeline at $timelineWebappAddress")
+    val version = config.getFloat(
+      YarnConfiguration.TIMELINE_SERVICE_VERSION,
+      YarnConfiguration.DEFAULT_TIMELINE_SERVICE_VERSION)
     _timelineClient = Some(createTimelineClient())
     timelineVersion1_5 = YarnConfiguration.timelineServiceV1_5Enabled(config)
-    groupId = TimelineEntityGroupId.newInstance(applicationId, SPARK_EVENT_GROUP_TYPE)
     domainId = createTimelineDomain()
+    logInfo(s"Spark events will be published to the Timeline at $timelineWebappAddress"
+      +s" API version=$version; domain ID = $domainId")
+    if (timelineVersion1_5) {
+      groupId = Some(TimelineEntityGroupId.newInstance(applicationId, SPARK_EVENT_GROUP_TYPE))
+      logInfo(s"GroupID=$groupId")
+    }
     // declare that the processing is started
     queueStopped.set(false)
     val thread = new Thread(new EntityPoster(), "EventPoster")
@@ -809,9 +816,9 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
     metrics.entityPostAttempts.inc()
     try {
       val response = if (timelineVersion1_5) {
-        timelineClient.putEntities(attemptId.orNull, groupId, entity);
+        timelineClient.putEntities(attemptId.orNull, groupId.get, entity)
       } else {
-        timelineClient.putEntities(entity);
+        timelineClient.putEntities(entity)
       }
       val errors = response.getErrors
       if (errors.isEmpty) {

@@ -81,6 +81,12 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
   val SERVICE_SHUTDOWN_DELAY = 10000
 
   /**
+   * How long to expect the various async timeline processes to pick
+   * up on the changed file
+   */
+  val TIMELINE_UPDATE_DELAY = 5000
+
+  /**
    * Cancel a test if the network isn't there.
    *
    * If called during setup, this will abort the test

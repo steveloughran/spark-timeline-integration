@@ -17,18 +17,24 @@
 
 package org.apache.spark.deploy.history.yarn.integration
 
-import java.io.IOException
+import java.io.{File, IOException}
 import java.net.URL
+import java.nio.file.Files
 import java.util.logging.Logger
 
 import scala.collection.mutable
 
+import org.apache.commons.io.FileUtils
 import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, CommonConfigurationKeysPublic, Path}
 import org.apache.hadoop.security.token.delegation.web.DelegationTokenAuthenticatedURL.Token
 import org.apache.hadoop.service.ServiceOperations
 import org.apache.hadoop.yarn.api.records.timeline.{TimelineEntity, TimelineEvent, TimelinePutResponse}
 import org.apache.hadoop.yarn.client.api.TimelineClient
+import org.apache.hadoop.yarn.conf.YarnConfiguration
+import org.apache.hadoop.yarn.conf.YarnConfiguration._
 import org.apache.hadoop.yarn.server.applicationhistoryservice.ApplicationHistoryServer
+import org.apache.hadoop.yarn.server.timeline.EntityGroupFSTimelineStore
 import org.json4s.JValue
 import org.json4s.jackson.JsonMethods
 import org.scalatest.concurrent.Eventually
@@ -235,6 +241,8 @@ abstract class AbstractHistoryIntegrationTests
   protected def startTimelineClientAndAHS(conf: Configuration): Unit = {
     ServiceOperations.stopQuietly(_applicationHistoryServer)
     ServiceOperations.stopQuietly(_timelineClient)
+    // turn on ATS
+    enableATS1_5(conf)
     _timelineClient = TimelineClient.createTimelineClient()
     _timelineClient.init(conf)
     _timelineClient.start()
@@ -582,5 +590,37 @@ abstract class AbstractHistoryIntegrationTests
     val loadedAppUI = provider.getAppUI(appId, attemptId)
     assertSome(loadedAppUI, s"Failed to retrieve App UI under ID $appId attempt $attemptId from $provider")
     loadedAppUI.get.ui
+  }
+
+  def enableATS1_5(conf: Configuration): Unit = {
+    val projectBuildDir = new File(System.getProperty("project.build.dir",
+      System.getProperty("java.io.tmpdir")))
+    val atsDir = new File(projectBuildDir, "ats")
+    FileUtils.deleteDirectory(atsDir)
+    atsDir.mkdirs()
+    val fs = FileSystem.get(conf)
+    val atsPath = fs.makeQualified(new Path(atsDir.getAbsolutePath))
+
+    val activeDir = new Path(atsPath, "active")
+    fs.mkdirs(activeDir)
+    val doneDir = new Path(atsPath, "done")
+    fs.mkdirs(doneDir)
+    val leveldbDir = new File(atsDir, "leveldb")
+    conf.set(TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_ACTIVE_DIR, activeDir.toUri.toString)
+    conf.set(TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_DONE_DIR, doneDir.toUri.toString)
+    conf.set(TIMELINE_SERVICE_LEVELDB_PATH, leveldbDir.getAbsolutePath)
+    conf.setInt(TIMELINE_SERVICE_CLIENT_FD_FLUSH_INTERVAL_SECS, 1)
+    conf.setFloat(TIMELINE_SERVICE_VERSION, 1.5f)
+    conf.set(TIMELINE_SERVICE_STORE, classOf[EntityGroupFSTimelineStore].getName)
+/* (stevel: I have no idea why this is here or what it does)
+    conf.set(TIMELINE_SERVICE_ENTITY_GROUP_PLUGIN_CLASSES,
+      classOf[DistributedShellTimelinePlugin].getName)
+*/
+    conf.setLong(TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_SCAN_INTERVAL_SECONDS, 1)
+    conf.setLong(TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_UNKNOWN_ACTIVE_SECONDS, 1)
+    conf.setBoolean(TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_RM_INTEGRATION_ENABLED, false)
+
+    conf.setLong(YARN_CLIENT_APPLICATION_CLIENT_PROTOCOL_POLL_INTERVAL_MS, 100)
+    conf.getLong(YarnConfiguration.YARN_CLIENT_APPLICATION_CLIENT_PROTOCOL_POLL_TIMEOUT_MS, 1000)
   }
 }
