@@ -405,7 +405,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
     _timelineClient = Some(createTimelineClient())
     timelineVersion1_5 = YarnConfiguration.timelineServiceV1_5Enabled(config)
     domainId = createTimelineDomain()
-    logInfo(s"Spark events will be published to the Timeline at $timelineWebappAddress"
+    logInfo(s"Spark events will be published to $timelineWebappAddress"
       +s" API version=$version; domain ID = $domainId")
     if (timelineVersion1_5) {
       groupId = Some(TimelineEntityGroupId.newInstance(applicationId, SPARK_EVENT_GROUP_TYPE))

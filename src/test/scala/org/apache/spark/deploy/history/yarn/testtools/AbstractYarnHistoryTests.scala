@@ -20,6 +20,7 @@ package org.apache.spark.deploy.history.yarn.testtools
 import org.apache.hadoop.yarn.api.records.{ApplicationAttemptId, ApplicationId}
 import org.scalatest.{BeforeAndAfter, Matchers}
 
+import org.apache.spark.deploy.history.yarn.integration.FSTimelineStoreForTesting
 import org.apache.spark.{LocalSparkContext, Logging, SparkConf, SparkContext, SparkFunSuite}
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
 import org.apache.spark.deploy.history.yarn.{YarnEventListener, YarnHistoryService}
@@ -96,6 +97,7 @@ abstract class AbstractYarnHistoryTests
     val service = new YarnHistoryService()
     service.start(SchedulerExtensionServiceBinding(sc, id, appAttemptId))
     assert(YarnHistoryService.StartedState === service.serviceState, s"wrong state: $service")
+    FSTimelineStoreForTesting.put(id, true)
     service
   }
 

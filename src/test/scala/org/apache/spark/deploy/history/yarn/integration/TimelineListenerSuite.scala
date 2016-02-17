@@ -52,7 +52,9 @@ class TimelineListenerSuite extends AbstractHistoryIntegrationTests {
     flushHistoryServiceToSuccess()
     historyService.stop()
     awaitEmptyQueue(historyService, TEST_STARTUP_DELAY)
+    FSTimelineStoreForTesting.put(historyService.applicationId, false)
     describe("reading events back")
+
 
     Thread.sleep(TIMELINE_UPDATE_DELAY)
 

@@ -681,11 +681,11 @@ private[spark] object YarnTimelineUtils extends Logging {
     entity.setEntityId(entityId)
     // add app/attempt ID information
     addFilterAndField(entity, FIELD_APPLICATION_ID, appIdField)
+    addFilterAndField(entity, FIELD_APP_USER, userName)
 
     entity.addOtherInfo(FIELD_ATTEMPT_ID,
       buildApplicationAttemptIdField(sparkApplicationAttemptId))
     entity.addOtherInfo(FIELD_APP_NAME, appName)
-    entity.addOtherInfo(FIELD_APP_USER, userName)
     entity.addOtherInfo(FIELD_SPARK_VERSION, spark.SPARK_VERSION)
     entity.addOtherInfo(FIELD_ENTITY_VERSION, entityVersionCounter.getAndIncrement())
     started(entity, startTime)

@@ -19,14 +19,13 @@ package org.apache.spark.deploy.history.yarn.integration
 
 import java.io.{File, IOException}
 import java.net.URL
-import java.nio.file.Files
 import java.util.logging.Logger
 
 import scala.collection.mutable
 
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, CommonConfigurationKeysPublic, Path}
+import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.hadoop.security.token.delegation.web.DelegationTokenAuthenticatedURL.Token
 import org.apache.hadoop.service.ServiceOperations
 import org.apache.hadoop.yarn.api.records.timeline.{TimelineEntity, TimelineEvent, TimelinePutResponse}
@@ -34,11 +33,11 @@ import org.apache.hadoop.yarn.client.api.TimelineClient
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.hadoop.yarn.conf.YarnConfiguration._
 import org.apache.hadoop.yarn.server.applicationhistoryservice.ApplicationHistoryServer
-import org.apache.hadoop.yarn.server.timeline.EntityGroupFSTimelineStore
 import org.json4s.JValue
 import org.json4s.jackson.JsonMethods
 import org.scalatest.concurrent.Eventually
 
+import org.apache.spark.deploy.history.yarn.plugin.ScalaHistoryATS1_5Plugin
 import org.apache.spark.{SecurityManager, SparkConf}
 import org.apache.spark.deploy.history.{ApplicationHistoryProvider, FsHistoryProvider, HistoryServer}
 import org.apache.spark.deploy.history.yarn.{YarnHistoryService, YarnTimelineUtils}
@@ -50,7 +49,7 @@ import org.apache.spark.deploy.history.yarn.server.YarnHistoryProvider._
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
 import org.apache.spark.deploy.history.yarn.testtools.{AbstractYarnHistoryTests, FreePortFinder, HistoryServiceNotListeningToSparkContext, TimelineServiceEnabled}
 import org.apache.spark.scheduler.SparkListenerEvent
-import org.apache.spark.scheduler.cluster.{SchedulerExtensionServices, StubApplicationAttemptId}
+import org.apache.spark.scheduler.cluster.SchedulerExtensionServices
 import org.apache.spark.ui.SparkUI
 import org.apache.spark.util.Utils
 
@@ -611,16 +610,19 @@ abstract class AbstractHistoryIntegrationTests
     conf.set(TIMELINE_SERVICE_LEVELDB_PATH, leveldbDir.getAbsolutePath)
     conf.setInt(TIMELINE_SERVICE_CLIENT_FD_FLUSH_INTERVAL_SECS, 1)
     conf.setFloat(TIMELINE_SERVICE_VERSION, 1.5f)
-    conf.set(TIMELINE_SERVICE_STORE, classOf[EntityGroupFSTimelineStore].getName)
-/* (stevel: I have no idea why this is here or what it does)
+    conf.set(TIMELINE_SERVICE_STORE, classOf[FSTimelineStoreForTesting].getName)
     conf.set(TIMELINE_SERVICE_ENTITY_GROUP_PLUGIN_CLASSES,
-      classOf[DistributedShellTimelinePlugin].getName)
-*/
+      classOf[ScalaHistoryATS1_5Plugin].getName)
     conf.setLong(TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_SCAN_INTERVAL_SECONDS, 1)
     conf.setLong(TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_UNKNOWN_ACTIVE_SECONDS, 1)
-    conf.setBoolean(TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_RM_INTEGRATION_ENABLED, false)
 
     conf.setLong(YARN_CLIENT_APPLICATION_CLIENT_PROTOCOL_POLL_INTERVAL_MS, 100)
     conf.getLong(YarnConfiguration.YARN_CLIENT_APPLICATION_CLIENT_PROTOCOL_POLL_TIMEOUT_MS, 1000)
+
+    conf.set(YarnConfiguration.TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_SUMMARY_ENTITY_TYPES,
+      "YARN_APPLICATION,YARN_APPLICATION_ATTEMPT,YARN_CONTAINER,"
+          + YarnHistoryService.SPARK_EVENT_ENTITY_TYPE)
+    FSTimelineStoreForTesting.reset()
+
   }
 }
