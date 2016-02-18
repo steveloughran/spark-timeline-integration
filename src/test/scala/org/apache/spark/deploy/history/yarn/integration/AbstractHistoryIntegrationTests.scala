@@ -37,7 +37,6 @@ import org.json4s.JValue
 import org.json4s.jackson.JsonMethods
 import org.scalatest.concurrent.Eventually
 
-import org.apache.spark.deploy.history.yarn.plugin.ScalaHistoryATS1_5Plugin
 import org.apache.spark.{SecurityManager, SparkConf}
 import org.apache.spark.deploy.history.{ApplicationHistoryProvider, FsHistoryProvider, HistoryServer}
 import org.apache.spark.deploy.history.yarn.{YarnHistoryService, YarnTimelineUtils}
@@ -240,7 +239,7 @@ abstract class AbstractHistoryIntegrationTests
   protected def startTimelineClientAndAHS(conf: Configuration): Unit = {
     ServiceOperations.stopQuietly(_applicationHistoryServer)
     ServiceOperations.stopQuietly(_timelineClient)
-    // turn on ATS
+    // turn on ATS 1.5
     enableATS1_5(conf)
     _timelineClient = TimelineClient.createTimelineClient()
     _timelineClient.init(conf)
@@ -591,6 +590,21 @@ abstract class AbstractHistoryIntegrationTests
     loadedAppUI.get.ui
   }
 
+  /** Name of the plugin; isolated from Java class in case that goes to its own JAR. */
+  val PLUGIN_CLASS = "org.apache.spark.deploy.history.yarn.plugin.SparkATSPlugin"
+
+  /**
+   * Everything needed to turn on ATS v1.5 timeline server and client.
+   *
+   * 1. Create the various directories for active and complete apps, plus leveldb, all of
+   * the value of `project.build.dir`, or `java.io.tmpdir` if unset.
+   * 1. Enable the v1.5 client and ATS server
+   * 2. Uses `FSTimelineStoreForTesting` as the store, which doesn't ask YARN about app state.
+   * 3. Use `SparkATSPlugin` as the storage plugin.
+   * 4. Declares spark events as a summary type.
+   * 5. resets the `FSTimelineStoreForTesting` map of appid -> state; all are unknown
+   * @param conf configuration to update.
+   */
   def enableATS1_5(conf: Configuration): Unit = {
     val projectBuildDir = new File(System.getProperty("project.build.dir",
       System.getProperty("java.io.tmpdir")))
@@ -611,8 +625,9 @@ abstract class AbstractHistoryIntegrationTests
     conf.setInt(TIMELINE_SERVICE_CLIENT_FD_FLUSH_INTERVAL_SECS, 1)
     conf.setFloat(TIMELINE_SERVICE_VERSION, 1.5f)
     conf.set(TIMELINE_SERVICE_STORE, classOf[FSTimelineStoreForTesting].getName)
-    conf.set(TIMELINE_SERVICE_ENTITY_GROUP_PLUGIN_CLASSES,
-      classOf[ScalaHistoryATS1_5Plugin].getName)
+    conf.set(TIMELINE_SERVICE_ENTITY_GROUP_PLUGIN_CLASSES, PLUGIN_CLASS)
+    conf.setBoolean(YarnConfiguration.TIMELINE_SERVICE_TTL_ENABLE, false)
+
     conf.setLong(TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_SCAN_INTERVAL_SECONDS, 1)
     conf.setLong(TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_UNKNOWN_ACTIVE_SECONDS, 1)
 
@@ -622,6 +637,7 @@ abstract class AbstractHistoryIntegrationTests
     conf.set(YarnConfiguration.TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_SUMMARY_ENTITY_TYPES,
       "YARN_APPLICATION,YARN_APPLICATION_ATTEMPT,YARN_CONTAINER,"
           + YarnHistoryService.SPARK_EVENT_ENTITY_TYPE)
+    // reset current app map
     FSTimelineStoreForTesting.reset()
 
   }
