@@ -86,14 +86,14 @@ class TimelineQueryClientSuite extends AbstractHistoryIntegrationTests {
     describe("post an entity and then retrieve it")
     val te = new TimelineEntity
     te.setStartTime(now())
-    te.setEntityId("SPARK-0001")
+    te.setEntityId(applicationId.toString)
     te.setEntityType(SPARK_EVENT_ENTITY_TYPE)
     te.addPrimaryFilter(FILTER_APP_START, FILTER_APP_START_VALUE)
+    completed(applicationId)
 
     val timelineClient = historyService.timelineClient
     timelineClient.putEntities(te)
-    val timelineEntities: List[TimelineEntity] =
-      queryClient.listEntities(SPARK_EVENT_ENTITY_TYPE)
+    val timelineEntities= queryClient.listEntities(SPARK_EVENT_ENTITY_TYPE)
     assert(timelineEntities.size === 1, "empty TimelineEntity list")
     assertEntitiesEqual(te, timelineEntities.head)
 

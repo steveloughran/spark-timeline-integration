@@ -52,17 +52,17 @@ class ContextToHistoryProviderSuite
       enqueue(event)
       flushes += 1
       awaitEmptyQueue(historyService, TEST_STARTUP_DELAY)
-
       // closing context generates an application stop
       describe("stopping context")
-      stopContextAndFlushHistoryService()
+      sc.stop()
+      stopHistoryService(historyService)
       completed(historyService.applicationId)
-
       val timeline = historyService.timelineWebappAddress
       val queryClient = new TimelineQueryClient(timeline,
         historyService.yarnConfiguration, createClientConfig())
 
-      val entities = queryClient.listEntities(SPARK_EVENT_ENTITY_TYPE)
+      val entities = awaitSequenceSize(1, "applications on ATS", TIMELINE_SCAN_DELAY,
+        () => queryClient.listEntities(SPARK_EVENT_ENTITY_TYPE))
       logInfo(s"Entity listing returned ${entities.size} entities")
       entities.foreach { en =>
         logInfo(describeEntityVerbose(en))

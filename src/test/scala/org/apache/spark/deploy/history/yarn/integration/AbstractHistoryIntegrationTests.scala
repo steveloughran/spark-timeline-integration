@@ -529,6 +529,7 @@ abstract class AbstractHistoryIntegrationTests
   def stopContextAndFlushHistoryService(): Unit = {
     describe("stopping context")
     resetSparkContext()
+    stopHistoryService(historyService)
     flushHistoryServiceToSuccess()
   }
 
