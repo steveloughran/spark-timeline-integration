@@ -24,7 +24,7 @@ import scala.language.postfixOps
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
 import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
 import org.apache.spark.deploy.history.yarn.server.TimelineQueryClient._
-import org.apache.spark.deploy.history.yarn.server.YarnHistoryProvider
+import org.apache.spark.deploy.history.yarn.server.{Ls, YarnHistoryProvider}
 import org.apache.spark.deploy.history.yarn.server.YarnProviderUtils._
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
 
@@ -90,6 +90,11 @@ class MultiAttemptWebSuite extends AbstractHistoryIntegrationTests {
       describe("looking at REST UI")
       awaitHistoryRestUIContainsApp(connector, webUI, expectedAppId, true, TEST_STARTUP_DELAY)
 
+      // now try out the ls command
+      val ls = new Ls()
+      ls.setConf(conf)
+      ls.exec(Seq()) should be (0)
+      ls.exec(Seq(attempt1SparkId)) should be (0)
     }
 
     webUITest("submit and check", submitAndCheck)

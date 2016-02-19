@@ -97,7 +97,7 @@ private[spark] class TimelineQueryClient(
     logDebug("logging in ")
     // this operation has side effects including triggering a refresh thread, if not already running
     val user = UserGroupInformation.getLoginUser()
-    logInfo(s"User = $user")
+    logDebug(s"User = $user")
     // now do an initial checkin
     UserGroupInformation.getCurrentUser.checkTGTAndReloginFromKeytab()
   }
@@ -313,14 +313,14 @@ private[spark] class TimelineQueryClient(
    */
     def listEntities(
       entityType: String,
-        primaryFilter: Option[(String, String)] = None,
-        secondaryFilters: Map[String, String] = Map(),
-        fields: Seq[String] = Nil,
-        limit: Option[Long] = None,
-        windowStart: Option[Long] = None,
-        windowEnd: Option[Long] = None,
-        fromId: Option[String] = None,
-        fromTs: Option[Long] = None): List[TimelineEntity] = {
+      primaryFilter: Option[(String, String)] = None,
+      secondaryFilters: Map[String, String] = Map(),
+      fields: Seq[String] = Nil,
+      limit: Option[Long] = None,
+      windowStart: Option[Long] = None,
+      windowEnd: Option[Long] = None,
+      fromId: Option[String] = None,
+      fromTs: Option[Long] = None): List[TimelineEntity] = {
       require(!entityType.isEmpty, "no entity type")
       var resource = entityResource(entityType)
       // build the resource

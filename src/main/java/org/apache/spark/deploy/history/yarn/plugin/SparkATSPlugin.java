@@ -64,8 +64,7 @@ public class SparkATSPlugin extends TimelineEntityGroupPlugin
             result = toEntityGroupId(value);
             break;
           case FIELD_ATTEMPT_ID:
-            result = toGroupId(ConverterUtils.toApplicationAttemptId(value)
-                .getApplicationId());
+            result = toGroupId(entityToApplicationId(value));
             break;
           default:
             // no-op
@@ -86,9 +85,25 @@ public class SparkATSPlugin extends TimelineEntityGroupPlugin
     LOG.debug("getTimelineEntityGroupId({}}, {}})", entityId, entityType );
 
     if (entityType.equals(SPARK_EVENT_ENTITY_TYPE)) {
-      return toGroupId(ConverterUtils.toApplicationAttemptId(entityId).getApplicationId());
+      return toGroupId(entityToApplicationId(entityId));
     } else {
       return null;
+    }
+  }
+
+  /**
+   * Converts an entity ID to an application ID. This works with an appID or attempt ID
+   * string: an application Attempt ID is tried first, and if that fails, its tried as an
+   * application
+   * @param entityId string of the entity
+   * @return an application ID extracted from the entity
+   * @throws IllegalArgumentException if it could not be converted
+   */
+  private ApplicationId entityToApplicationId(String entityId) {
+    try {
+      return ConverterUtils.toApplicationAttemptId(entityId).getApplicationId();
+    } catch (IllegalArgumentException e) {
+      return ConverterUtils.toApplicationId(entityId);
     }
   }
 

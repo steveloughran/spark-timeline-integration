@@ -28,6 +28,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.hadoop.security.token.delegation.web.DelegationTokenAuthenticatedURL.Token
 import org.apache.hadoop.service.ServiceOperations
+import org.apache.hadoop.yarn.api.records.ApplicationId
 import org.apache.hadoop.yarn.api.records.timeline.{TimelineEntity, TimelineEvent, TimelinePutResponse}
 import org.apache.hadoop.yarn.client.api.TimelineClient
 import org.apache.hadoop.yarn.conf.YarnConfiguration
@@ -146,7 +147,8 @@ abstract class AbstractHistoryIntegrationTests
     if (hservice != null && hservice.serviceState == YarnHistoryService.StartedState) {
       flushHistoryServiceToSuccess()
       hservice.stop()
-      awaitServiceThreadStopped(hservice, TEST_STARTUP_DELAY, false)
+      awaitServiceThreadStopped(hservice, SERVICE_SHUTDOWN_DELAY, false)
+      awaitEmptyQueue(historyService, SERVICE_SHUTDOWN_DELAY)
     }
   }
 
@@ -556,7 +558,6 @@ abstract class AbstractHistoryIntegrationTests
     enqueue(jobStartEvent(10001, 1))
     enqueue(jobFailureEvent(10002, 1, new scala.RuntimeException("failed")))
     enqueue(appStopEvent(10003))
-    flushHistoryServiceToSuccess()
     stopHistoryService(historyService)
 
     // second attempt
@@ -639,6 +640,16 @@ abstract class AbstractHistoryIntegrationTests
           + YarnHistoryService.SPARK_EVENT_ENTITY_TYPE)
     // reset current app map
     FSTimelineStoreForTesting.reset()
+  }
 
+  /**
+   * Mark an application as having finished; this propagates
+   * to the `FSTimelineStoreForTesting` state so is essential
+   * to move to the next stage in history testing
+   * @param applicationId application ID.
+   */
+  def completed(applicationId: ApplicationId): Unit = {
+    FSTimelineStoreForTesting.put(applicationId, false)
+    Thread.sleep(TIMELINE_UPDATE_DELAY)
   }
 }

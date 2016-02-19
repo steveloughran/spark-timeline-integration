@@ -77,8 +77,8 @@ class IncompleteApplicationsSuite extends AbstractHistoryIntegrationTests {
       // stop the app
       listener.onApplicationEnd(SparkListenerApplicationEnd(now()))
       historyService.stop()
-      awaitEmptyQueue(historyService, EVENT_PROCESSED_TIMEOUT)
-
+      flushHistoryServiceToSuccess()
+      completed(applicationId)
       // validate ATS has it
       val timelineEntities = queryClient.listEntities(SPARK_EVENT_ENTITY_TYPE,
               primaryFilter = Some((FILTER_APP_END, FILTER_APP_END_VALUE)))

@@ -215,6 +215,12 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
   }
 
   /**
+   * Get the configuration of this service
+   * @return the configuration as a YarnConfiguration instance
+   */
+  def yarnConfiguration: YarnConfiguration = config
+
+  /**
    * Get the total number of events dropped due to the queue of
    * outstanding posts being too long.
    * @return counter of events processed

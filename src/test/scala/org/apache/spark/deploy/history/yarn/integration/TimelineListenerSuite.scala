@@ -19,6 +19,8 @@ package org.apache.spark.deploy.history.yarn.integration
 
 import scala.collection.JavaConverters._
 
+import org.apache.hadoop.yarn.api.records.ApplicationId
+
 import org.apache.spark.deploy.history.yarn.{YarnEventListener, YarnHistoryService}
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
 import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
@@ -49,14 +51,10 @@ class TimelineListenerSuite extends AbstractHistoryIntegrationTests {
                                Utils.getCurrentUserName())
     listener.onApplicationStart(started)
     awaitEventsProcessed(historyService, 1, TEST_STARTUP_DELAY)
-    flushHistoryServiceToSuccess()
-    historyService.stop()
+    stopHistoryService(historyService)
+    completed(historyService.applicationId)
     awaitEmptyQueue(historyService, TEST_STARTUP_DELAY)
-    FSTimelineStoreForTesting.put(historyService.applicationId, false)
     describe("reading events back")
-
-
-    Thread.sleep(TIMELINE_UPDATE_DELAY)
 
     val queryClient = createTimelineQueryClient()
 
@@ -76,9 +74,7 @@ class TimelineListenerSuite extends AbstractHistoryIntegrationTests {
 
     val timelineEntities = queryClient.listEntities(SPARK_EVENT_ENTITY_TYPE,
                                 primaryFilter = appEndFilter)
-    assertListSize(timelineEntities,
-      1,
-      "entities listed by app end filter")
+    assertListSize(timelineEntities, 1, "entities listed by app end filter")
     val expectedAppId = historyService.applicationId.toString
     val expectedEntityId = attemptId.toString
     val entry = timelineEntities.head

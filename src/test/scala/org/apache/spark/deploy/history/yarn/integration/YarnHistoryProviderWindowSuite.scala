@@ -103,8 +103,7 @@ class YarnHistoryProviderWindowSuite
       val end3Time = provider.tick()
       val end3 = appStopEvent(end3Time)
       historyService.enqueue(end3)
-      historyService.stop()
-      flushHistoryServiceToSuccess()
+      stopHistoryService(historyService)
 
       // move time forwards
       provider.incrementTime(5 * minute)

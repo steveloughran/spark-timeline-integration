@@ -43,6 +43,12 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
     "System Properties" -> Seq(("Username", "guest"), ("Password", "guest")),
     "Classpath Entries" -> Seq(("Super library", "/tmp/super_library"))))
 
+  val applicationId: ApplicationId = new StubApplicationId(0, 1111L)
+  val attemptId: ApplicationAttemptId = new StubApplicationAttemptId(applicationId, 0)
+  val attemptId1 = new StubApplicationAttemptId(applicationId, 111)
+  val attemptId2 = new StubApplicationAttemptId(applicationId, 222)
+  val attemptId3 = new StubApplicationAttemptId(applicationId, 333)
+
   /**
    * Application name used in the app start event and tests
    */
@@ -56,7 +62,7 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
   /**
    * application ID
    */
-  val APP_ID = "application_id_0001"
+  val APP_ID = applicationId.toString
 
   /**
    * Spark option to set for the history provider
@@ -84,7 +90,7 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
    * How long to expect the various async timeline processes to pick
    * up on the changed file
    */
-  val TIMELINE_UPDATE_DELAY = 5000
+  val TIMELINE_UPDATE_DELAY = 0
 
   /**
    * Cancel a test if the network isn't there.
@@ -200,11 +206,12 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
   }
 
   /**
-   * Create an app start event, using the fixed [[APP_NAME]] and [[APP_USER]] values
-   * for appname and user; no attempt ID
+   * Create an app start event, using the fixed [[APP_NAME]] value
    *
    * @param time application start time
-   * @param appId event ID; default is [[APP_ID]]
+   * @param appId event ID; default is [[applicationId]]
+   * @param user the user; defaults is [[APP_USER]]
+   * @param attemptId attempt ID; this is converted to a string for the event
    * @return the event
    */
   def appStartEventWithAttempt(time: Long = 1,
@@ -221,6 +228,7 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
    * @param appId event ID; default is [[APP_ID]]
    * @param user the user; defaults is [[APP_USER]]
    * @param attempt attempt ID; default is `None`
+   * @param name application name
    * @return the event
    */
   def appStartEvent(time: Long = 1434920400000L,
@@ -254,21 +262,16 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
     new SparkListenerJobEnd(id, time, JobFailed(ex))
   }
 
+  val applicationStart = appStartEventWithAttempt(now(), applicationId.toString, "bob", attemptId)
+  val applicationEnd = SparkListenerApplicationEnd(now() + 60000)
+
   def newEntity(time: Long): TimelineEntity = {
     val entity = new TimelineEntity
     entity.setStartTime(time)
-    entity.setEntityId("post")
+    entity.setEntityId(APP_ID)
     entity.setEntityType(YarnHistoryService.SPARK_EVENT_ENTITY_TYPE)
     entity
   }
-
-  val applicationId: ApplicationId = new StubApplicationId(0, 1111L)
-  val attemptId: ApplicationAttemptId = new StubApplicationAttemptId(applicationId, 0)
-  val attemptId1 = new StubApplicationAttemptId(applicationId, 111)
-  val attemptId2 = new StubApplicationAttemptId(applicationId, 222)
-  val attemptId3 = new StubApplicationAttemptId(applicationId, 333)
-  val applicationStart = appStartEventWithAttempt(now(), applicationId.toString, "bob", attemptId)
-  val applicationEnd = SparkListenerApplicationEnd(now() + 60000)
 
   /**
    * Outcomes of probes

@@ -51,11 +51,9 @@ class WebsiteIntegrationSuite extends AbstractHistoryIntegrationTests {
       val started = appStartEvent(startTime, ctxAppId, Utils.getCurrentUserName())
       listener.onApplicationStart(started)
       awaitEventsProcessed(historyService, 1, TEST_STARTUP_DELAY)
-      flushHistoryServiceToSuccess()
-
       // now stop the app
-      historyService.stop()
-      awaitEmptyQueue(historyService, SERVICE_SHUTDOWN_DELAY)
+      stopHistoryService(historyService)
+      completed(historyService.applicationId)
       val expectedAppId = historyService.applicationId.toString
       val expectedAttemptId = attemptId.toString
 

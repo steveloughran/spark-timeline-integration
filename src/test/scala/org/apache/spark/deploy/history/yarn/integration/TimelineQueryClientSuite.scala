@@ -122,7 +122,7 @@ class TimelineQueryClientSuite extends AbstractHistoryIntegrationTests {
   }
 
   test("Client endpointcheck() Against Wrong URL") {
-    val client: TimelineQueryClient = createTimelineClientRootPath()
+    val client = createTimelineClientRootPath()
     val ex = intercept[HttpRequestException] {
       client.endpointCheck()
     }
