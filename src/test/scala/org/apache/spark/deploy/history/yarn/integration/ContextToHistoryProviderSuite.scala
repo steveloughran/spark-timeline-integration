@@ -56,7 +56,7 @@ class ContextToHistoryProviderSuite
       describe("stopping context")
       sc.stop()
       stopHistoryService(historyService)
-      completed(historyService.applicationId)
+      completed(historyService)
       val timeline = historyService.timelineWebappAddress
       val queryClient = new TimelineQueryClient(timeline,
         historyService.yarnConfiguration, createClientConfig())

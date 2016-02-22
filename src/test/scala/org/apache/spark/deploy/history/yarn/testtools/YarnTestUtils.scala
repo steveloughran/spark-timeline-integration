@@ -43,8 +43,8 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
     "System Properties" -> Seq(("Username", "guest"), ("Password", "guest")),
     "Classpath Entries" -> Seq(("Super library", "/tmp/super_library"))))
 
-  val applicationId: ApplicationId = new StubApplicationId(0, 1111L)
-  val attemptId: ApplicationAttemptId = new StubApplicationAttemptId(applicationId, 0)
+  val applicationId = new StubApplicationId(0, 1111L)
+  val attemptId = new StubApplicationAttemptId(applicationId, 0)
   val attemptId1 = new StubApplicationAttemptId(applicationId, 111)
   val attemptId2 = new StubApplicationAttemptId(applicationId, 222)
   val attemptId3 = new StubApplicationAttemptId(applicationId, 333)
@@ -85,12 +85,6 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
 
   /** probes during service shutdown need to handle delayed posting */
   val SERVICE_SHUTDOWN_DELAY = 10000
-
-  /**
-   * How long to expect the various async timeline processes to pick
-   * up on the changed file
-   */
-  val TIMELINE_UPDATE_DELAY = 0
 
   /**
    * Time to wait for timeline scans before failing

@@ -53,15 +53,14 @@ class WebsiteIntegrationSuite extends AbstractHistoryIntegrationTests {
       awaitEventsProcessed(historyService, 1, TEST_STARTUP_DELAY)
       // now stop the app
       stopHistoryService(historyService)
-      completed(historyService.applicationId)
+      completed(historyService)
       val expectedAppId = historyService.applicationId.toString
       val expectedAttemptId = attemptId.toString
 
       // validate ATS has it
       val queryClient = createTimelineQueryClient()
-      val timelineEntities = queryClient.listEntities(SPARK_EVENT_ENTITY_TYPE,
-          primaryFilter = Some((FILTER_APP_END, FILTER_APP_END_VALUE)))
-      assert(1 === timelineEntities.size, "entities listed by app end filter")
+      val timelineEntities = awaitSequenceSize(1, "applications on ATS", TIMELINE_SCAN_DELAY,
+        () => queryClient.listEntities(SPARK_EVENT_ENTITY_TYPE))
       val entry = timelineEntities.head
       assert(expectedAttemptId === entry.getEntityId,
         s"head entry id!=$expectedAttemptId: ${describeEntity(entry)} ")

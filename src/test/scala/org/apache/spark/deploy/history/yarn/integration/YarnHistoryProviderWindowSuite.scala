@@ -31,6 +31,9 @@ import org.apache.spark.util.Utils
  *
  * More than one history service is started here, each publishing their own events, with
  * their own app ID. For this to work they are set up to not listen to context events.
+ *
+ * The two apps are launched such that the first launched app is not yet completed before the
+ * second.
  */
 class YarnHistoryProviderWindowSuite
     extends AbstractHistoryIntegrationTests
@@ -63,6 +66,8 @@ class YarnHistoryProviderWindowSuite
       enqueue(start1)
       flushHistoryServiceToSuccess(historyService)
 
+      // a new application is started before the current history is started
+
       describe("application 2")
       // the second application starts then stops after the first one
       val applicationId2 = appReport2.getApplicationId
@@ -78,8 +83,8 @@ class YarnHistoryProviderWindowSuite
       val end2 = appStopEvent(end2Time)
       history2.enqueue(end2)
       // stop the second application
-      history2.stop()
-      flushHistoryServiceToSuccess(history2)
+      stopHistoryService(history2)
+      completed(history2)
       history2 = null
 
       // here there is one incomplete application, and a completed one
@@ -104,6 +109,7 @@ class YarnHistoryProviderWindowSuite
       val end3 = appStopEvent(end3Time)
       historyService.enqueue(end3)
       stopHistoryService(historyService)
+      completed(historyService)
 
       // move time forwards
       provider.incrementTime(5 * minute)

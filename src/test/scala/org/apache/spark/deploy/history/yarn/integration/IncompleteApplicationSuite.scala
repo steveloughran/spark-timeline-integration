@@ -32,7 +32,7 @@ import org.apache.spark.util.Utils
  * This implicitly tests some of the windowing logic. Specifically, do completed
  * applications get picked up?
  */
-class IncompleteApplicationsSuite extends AbstractHistoryIntegrationTests {
+class IncompleteApplicationSuite extends AbstractHistoryIntegrationTests {
 
   val EVENT_PROCESSED_TIMEOUT = 2000
 
@@ -41,6 +41,7 @@ class IncompleteApplicationsSuite extends AbstractHistoryIntegrationTests {
       val connector = createUrlConnector()
 
       historyService = startHistoryService(sc, applicationId, Some(attemptId1))
+      started(historyService)
       val timeline = historyService.timelineWebappAddress
       val listener = new YarnEventListener(sc, historyService)
 
@@ -50,12 +51,11 @@ class IncompleteApplicationsSuite extends AbstractHistoryIntegrationTests {
       val attemptId = attemptId1.toString
       val sparkAttemptId = attemptId
       val appName = "Incompleted"
-      val started = appStartEvent(startTime,
+      listener.onApplicationStart(appStartEvent(startTime,
         expectedAppId,
         Utils.getCurrentUserName(),
         Some(sparkAttemptId),
-        appName)
-      listener.onApplicationStart(started)
+        appName))
       val jobId = 2
       listener.onJobStart(jobStartEvent(startTime + 1, jobId))
       awaitEventsProcessed(historyService, 2, EVENT_PROCESSED_TIMEOUT)
@@ -64,11 +64,11 @@ class IncompleteApplicationsSuite extends AbstractHistoryIntegrationTests {
       // await for a  refresh
 
       // listing
+      describe("Incomplete history flushed, history provider to retrieve")
       awaitApplicationListingSize(provider, 1, EVENT_PROCESSED_TIMEOUT)
 
-      val queryClient = createTimelineQueryClient()
-
       // check for work in progress
+      describe("Probing rest UI for incomplete app")
       awaitHistoryRestUIContainsApp(connector, webUI, expectedAppId, false, EVENT_PROCESSED_TIMEOUT)
 
       logInfo("Ending job and application")
@@ -80,6 +80,8 @@ class IncompleteApplicationsSuite extends AbstractHistoryIntegrationTests {
       flushHistoryServiceToSuccess()
       completed(applicationId)
       // validate ATS has it
+      describe("App completed —probing for state change")
+      val queryClient = createTimelineQueryClient()
       val timelineEntities = queryClient.listEntities(SPARK_EVENT_ENTITY_TYPE,
               primaryFilter = Some((FILTER_APP_END, FILTER_APP_END_VALUE)))
       assert(1 === timelineEntities.size, "entities listed by app end filter")
@@ -93,6 +95,7 @@ class IncompleteApplicationsSuite extends AbstractHistoryIntegrationTests {
       // listing
       awaitApplicationListingSize(provider, 1, EVENT_PROCESSED_TIMEOUT)
 
+      describe("Probing for REST UI moving app to completed list")
       // look for the app going off the incomplete list
       awaitHistoryRestUIListSize(connector, webUI, 0, false, EVENT_PROCESSED_TIMEOUT)
       // and look for the complete app

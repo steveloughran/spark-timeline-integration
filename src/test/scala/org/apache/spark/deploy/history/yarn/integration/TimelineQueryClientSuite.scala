@@ -93,8 +93,8 @@ class TimelineQueryClientSuite extends AbstractHistoryIntegrationTests {
 
     val timelineClient = historyService.timelineClient
     timelineClient.putEntities(te)
-    val timelineEntities= queryClient.listEntities(SPARK_EVENT_ENTITY_TYPE)
-    assert(timelineEntities.size === 1, "empty TimelineEntity list")
+    val timelineEntities = awaitSequenceSize(1, "applications on ATS", TIMELINE_SCAN_DELAY,
+      () => queryClient.listEntities(SPARK_EVENT_ENTITY_TYPE))
     assertEntitiesEqual(te, timelineEntities.head)
 
     val entity2 = queryClient.getEntity(SPARK_EVENT_ENTITY_TYPE, te.getEntityId() )

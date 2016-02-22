@@ -97,8 +97,27 @@ abstract class AbstractYarnHistoryTests
     val service = new YarnHistoryService()
     service.start(SchedulerExtensionServiceBinding(sc, id, appAttemptId))
     assert(YarnHistoryService.StartedState === service.serviceState, s"wrong state: $service")
-    FSTimelineStoreForTesting.put(id, true)
+    started(id)
     service
+  }
+
+  /**
+   * Mark an application as having started; this propagates
+   * to the `FSTimelineStoreForTesting`
+   * @param applicationId application ID.
+   */
+  def started(applicationId: ApplicationId): Unit = {
+    FSTimelineStoreForTesting.put(applicationId, true)
+  }
+
+  /**
+   * Mark an application as having finished; this propagates
+   * to the `FSTimelineStoreForTesting` state so is essential
+   * to move to the next stage in history testing
+   * @param applicationId application ID.
+   */
+  def completed(applicationId: ApplicationId): Unit = {
+    FSTimelineStoreForTesting.put(applicationId, false)
   }
 
   /**

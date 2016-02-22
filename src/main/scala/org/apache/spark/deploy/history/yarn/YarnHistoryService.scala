@@ -830,6 +830,8 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
       if (errors.isEmpty) {
         logDebug(s"entity successfully posted")
         metrics.entityPostSuccesses.inc()
+        // and flush the timeline
+        flushTimeline();
       } else {
         // The ATS service rejected the request at the API level.
         // this is something we assume cannot be re-tried
@@ -922,6 +924,14 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
       }
     }
     result
+  }
+
+  /**
+   * Flush the timeline client; for async clients this is expected to persist
+   * the event list
+   */
+  private def flushTimeline(): Unit ={
+    timelineClient.flush();
   }
 
   /**

@@ -32,7 +32,9 @@ import org.apache.spark.Logging
  * application state updates; instead it looks up the value in a map; if the app
  * is not in the map then it is automatically in the unknown state
  */
-class FSTimelineStoreForTesting extends EntityGroupFSTimelineStore {
+class FSTimelineStoreForTesting extends EntityGroupFSTimelineStore with Logging {
+
+  logInfo(s"YARN RM is mimiced by ${getClass.getName}")
 
   override def createAndInitYarnClient(conf: Configuration): YarnClient = null
 
@@ -47,7 +49,7 @@ class FSTimelineStoreForTesting extends EntityGroupFSTimelineStore {
  */
 object FSTimelineStoreForTesting extends Logging{
 
-  private val appStateMap = new mutable.ParHashMap[ApplicationId, Boolean]
+  private val appStateMap = new mutable.ParHashMap[String, Boolean]
 
   private def liveness(b: Boolean): AppState = {
     if (b) {
@@ -58,23 +60,27 @@ object FSTimelineStoreForTesting extends Logging{
   }
 
   def getAppState(appId: ApplicationId): AppState = {
-    get(appId).map(liveness).getOrElse(AppState.UNKNOWN)
+    val state = get(appId).map(liveness).getOrElse(AppState.UNKNOWN)
+    logDebug(s"$appId == $state")
+    state
   }
 
   def get(appId: ApplicationId): Option[Boolean] = {
-    appStateMap.get(appId)
+    appStateMap.get(appId.toString)
   }
 
   def put(appId: ApplicationId, live: Boolean): Unit = {
-    logDebug(s"$appId -> live = $live")
-    appStateMap.put(appId, live)
+    logDebug(s"$appId -> ${liveness(live)}")
+    appStateMap.put(appId.toString, live)
   }
 
   def remove(appId: ApplicationId): Unit = {
-    appStateMap.remove(appId)
+    logDebug(s"$appId -> ${AppState.UNKNOWN}")
+    appStateMap.remove(appId.toString)
   }
 
   def reset(): Unit = {
+    logDebug("Reset state map")
     appStateMap.clear()
   }
 }

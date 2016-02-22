@@ -25,10 +25,9 @@ import scala.collection.mutable
 
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.hadoop.fs.{ChecksumFileSystem, RawLocalFileSystem, LocalFileSystemConfigKeys, FileSystem, Path}
 import org.apache.hadoop.security.token.delegation.web.DelegationTokenAuthenticatedURL.Token
 import org.apache.hadoop.service.ServiceOperations
-import org.apache.hadoop.yarn.api.records.ApplicationId
 import org.apache.hadoop.yarn.api.records.timeline.{TimelineEntity, TimelineEvent, TimelinePutResponse}
 import org.apache.hadoop.yarn.client.api.TimelineClient
 import org.apache.hadoop.yarn.conf.YarnConfiguration
@@ -141,13 +140,13 @@ abstract class AbstractHistoryIntegrationTests
    * Stop a history service. This includes flushing its queue,
    * blocking until that queue has been flushed and closed, then
    * stopping the YARN service.
-   * @param hservice history service to stop
+   * @param history history service to stop
    */
-  def stopHistoryService(hservice: YarnHistoryService): Unit = {
-    if (hservice != null && hservice.serviceState == YarnHistoryService.StartedState) {
+  def stopHistoryService(history: YarnHistoryService): Unit = {
+    if (history != null && history.serviceState == YarnHistoryService.StartedState) {
       flushHistoryServiceToSuccess()
-      hservice.stop()
-      awaitServiceThreadStopped(hservice, SERVICE_SHUTDOWN_DELAY, false)
+      history.stop()
+      awaitServiceThreadStopped(history, SERVICE_SHUTDOWN_DELAY, false)
       awaitEmptyQueue(historyService, SERVICE_SHUTDOWN_DELAY)
     }
   }
@@ -613,7 +612,15 @@ abstract class AbstractHistoryIntegrationTests
     val atsDir = new File(projectBuildDir, "ats")
     FileUtils.deleteDirectory(atsDir)
     atsDir.mkdirs()
+
+
+    // try to turn off checksums
+
+    // try to turn off checksums
+    conf.setInt(LocalFileSystemConfigKeys.LOCAL_FS_BYTES_PER_CHECKSUM_KEY, 1)
+
     val fs = FileSystem.get(conf)
+    assert(fs.isInstanceOf[ChecksumFileSystem])
     val atsPath = fs.makeQualified(new Path(atsDir.getAbsolutePath))
 
     val activeDir = new Path(atsPath, "active")
@@ -625,18 +632,20 @@ abstract class AbstractHistoryIntegrationTests
     conf.set(TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_DONE_DIR, doneDir.toUri.toString)
     conf.set(TIMELINE_SERVICE_LEVELDB_PATH, leveldbDir.getAbsolutePath)
     conf.setInt(TIMELINE_SERVICE_CLIENT_FD_FLUSH_INTERVAL_SECS, 1)
+    conf.setInt(TIMELINE_SERVICE_CLIENT_FD_RETAIN_SECS, 1)
     conf.setFloat(TIMELINE_SERVICE_VERSION, 1.5f)
     conf.set(TIMELINE_SERVICE_STORE, classOf[FSTimelineStoreForTesting].getName)
     conf.set(TIMELINE_SERVICE_ENTITY_GROUP_PLUGIN_CLASSES, PLUGIN_CLASS)
-    conf.setBoolean(YarnConfiguration.TIMELINE_SERVICE_TTL_ENABLE, false)
+    conf.setBoolean(TIMELINE_SERVICE_TTL_ENABLE, false)
 
     conf.setLong(TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_SCAN_INTERVAL_SECONDS, 1)
-    conf.setLong(TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_UNKNOWN_ACTIVE_SECONDS, 1)
+    conf.setLong(TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_UNKNOWN_ACTIVE_SECONDS, 10)
 
     conf.setLong(YARN_CLIENT_APPLICATION_CLIENT_PROTOCOL_POLL_INTERVAL_MS, 100)
-    conf.getLong(YarnConfiguration.YARN_CLIENT_APPLICATION_CLIENT_PROTOCOL_POLL_TIMEOUT_MS, 1000)
+    conf.getLong(YARN_CLIENT_APPLICATION_CLIENT_PROTOCOL_POLL_TIMEOUT_MS, 1000)
+    conf.setBoolean(TIMELINE_SERVICE_PREFIX + "entity-file.fs-support-append", false);
 
-    conf.set(YarnConfiguration.TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_SUMMARY_ENTITY_TYPES,
+    conf.set(TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_SUMMARY_ENTITY_TYPES,
       "YARN_APPLICATION,YARN_APPLICATION_ATTEMPT,YARN_CONTAINER,"
           + YarnHistoryService.SPARK_EVENT_ENTITY_TYPE)
     // reset current app map
@@ -644,13 +653,19 @@ abstract class AbstractHistoryIntegrationTests
   }
 
   /**
-   * Mark an application as having finished; this propagates
-   * to the `FSTimelineStoreForTesting` state so is essential
-   * to move to the next stage in history testing
-   * @param applicationId application ID.
+   * mark the application of a history service as completed
+   * @param history the service
    */
-  def completed(applicationId: ApplicationId): Unit = {
-    FSTimelineStoreForTesting.put(applicationId, false)
-    Thread.sleep(TIMELINE_UPDATE_DELAY)
+  def completed(history: YarnHistoryService): Unit = {
+    completed(historyService.applicationId)
   }
+
+  /**
+   * mark the application of a history service as started
+   * @param history the service
+   */
+  def started(history: YarnHistoryService): Unit = {
+    started(historyService.applicationId)
+  }
+
 }
