@@ -18,19 +18,18 @@
 package org.apache.spark.deploy.history.yarn.integration
 
 import java.io.{File, IOException}
-import java.net.URL
+import java.net.{URI, URL}
 import java.util.logging.Logger
 
 import scala.collection.mutable
 
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{ChecksumFileSystem, RawLocalFileSystem, LocalFileSystemConfigKeys, FileSystem, Path}
+import org.apache.hadoop.fs.{LocalFileSystem, LocalFileSystemConfigKeys, FileSystem, Path}
 import org.apache.hadoop.security.token.delegation.web.DelegationTokenAuthenticatedURL.Token
 import org.apache.hadoop.service.ServiceOperations
 import org.apache.hadoop.yarn.api.records.timeline.{TimelineEntity, TimelineEvent, TimelinePutResponse}
 import org.apache.hadoop.yarn.client.api.TimelineClient
-import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.hadoop.yarn.conf.YarnConfiguration._
 import org.apache.hadoop.yarn.server.applicationhistoryservice.ApplicationHistoryServer
 import org.json4s.JValue
@@ -255,7 +254,8 @@ abstract class AbstractHistoryIntegrationTests
 
   protected def createTimelineQueryClient(): TimelineQueryClient = {
     new TimelineQueryClient(historyService.timelineWebappAddress,
-      sc.hadoopConfiguration, createClientConfig())
+      historyService.yarnConfiguration,
+      createClientConfig())
   }
 
   /**
@@ -614,14 +614,21 @@ abstract class AbstractHistoryIntegrationTests
     atsDir.mkdirs()
 
 
+    conf.setFloat(TIMELINE_SERVICE_VERSION, 1.5f)
+    conf.setBoolean("fs.file.impl.disable.cache", false)
     // try to turn off checksums
-
-    // try to turn off checksums
-    conf.setInt(LocalFileSystemConfigKeys.LOCAL_FS_BYTES_PER_CHECKSUM_KEY, 1)
+    conf.setInt(TIMELINE_SERVICE_CLIENT_FD_FLUSH_INTERVAL_SECS, 1)
+    conf.setInt(TIMELINE_SERVICE_CLIENT_FD_RETAIN_SECS, 1)
+    conf.setInt(LocalFileSystemConfigKeys.LOCAL_FS_BYTES_PER_CHECKSUM_KEY, 2)
 
     val fs = FileSystem.get(conf)
-    assert(fs.isInstanceOf[ChecksumFileSystem])
-    val atsPath = fs.makeQualified(new Path(atsDir.getAbsolutePath))
+    val localFS = fs.asInstanceOf[LocalFileSystem]
+    // turn off checksums. Provided everything shares the same FS, no flush problems
+    localFS.setWriteChecksum(false)
+    localFS.setVerifyChecksum(false)
+
+    val atsPath = fs.makeQualified(new Path(atsDir.toURI))
+    logInfo(s"ATS Directory is at $atsPath in filesystem $fs")
 
     val activeDir = new Path(atsPath, "active")
     fs.mkdirs(activeDir)
@@ -631,9 +638,6 @@ abstract class AbstractHistoryIntegrationTests
     conf.set(TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_ACTIVE_DIR, activeDir.toUri.toString)
     conf.set(TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_DONE_DIR, doneDir.toUri.toString)
     conf.set(TIMELINE_SERVICE_LEVELDB_PATH, leveldbDir.getAbsolutePath)
-    conf.setInt(TIMELINE_SERVICE_CLIENT_FD_FLUSH_INTERVAL_SECS, 1)
-    conf.setInt(TIMELINE_SERVICE_CLIENT_FD_RETAIN_SECS, 1)
-    conf.setFloat(TIMELINE_SERVICE_VERSION, 1.5f)
     conf.set(TIMELINE_SERVICE_STORE, classOf[FSTimelineStoreForTesting].getName)
     conf.set(TIMELINE_SERVICE_ENTITY_GROUP_PLUGIN_CLASSES, PLUGIN_CLASS)
     conf.setBoolean(TIMELINE_SERVICE_TTL_ENABLE, false)
