@@ -63,12 +63,12 @@ class MockHistoryBulkPostingSuite extends AbstractMockHistorySuite {
       // events dropped
       awaitAtLeast(batchSize, TEST_STARTUP_DELAY,
         () => service.eventsDropped,
-        () => service.toString())
+        service.toString())
 
       // posts failed
       awaitAtLeast(10, SERVICE_SHUTDOWN_DELAY,
         () => service.postFailures,
-        () => service.toString())
+        service.toString())
 
       // now trigger a service shutdown with the blocking queue
       describe("Service stop")

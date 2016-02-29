@@ -20,7 +20,7 @@ package org.apache.spark.deploy.history.yarn.testtools
 import java.io.{InputStream, IOException}
 import java.net.URL
 
-import org.apache.hadoop.yarn.api.records.{ApplicationAttemptId, ApplicationId}
+import org.apache.hadoop.yarn.api.records.ApplicationAttemptId
 import org.apache.hadoop.yarn.api.records.timeline.TimelineEntity
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.hadoop.yarn.server.timeline.MemoryTimelineStore
@@ -333,7 +333,7 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
    * false is considered "retry", not a failure
    *
    * @param value value to probe
-   * @return
+   * @return success for true; retry for false
    */
   def outcomeFromBool(value: Boolean): Outcome = {
     if (value) Success() else Retry()
@@ -341,7 +341,9 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
 
   /**
    * From an increasing counter, compare the results and decide whether to succeed, fail or try
-   * again. Requires that if actual is greater than expected, it is a failed state.
+   * again.
+   *
+   * Requires that if actual is greater than expected, it is a failed state.
    *
    * @param expected expected outcome
    * @param actual actual value
@@ -358,7 +360,9 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
 
   /**
    * From an increasing counter, compare the results and decide whether to succeed or try
-   * again. Any value equal to or greater than expected is a success. Ideal for waiting for
+   * again.
+   *
+   * Any value equal to or greater than expected is a success. Ideal for waiting for
    * asynchronous operations to complete
    * @param expected expected outcome
    * @param actual actual value
@@ -379,7 +383,7 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
   }
 
   /**
-   * a No-op on failure
+   * A no-op on failure.
    *
    * @param outcome outcome of the last operation
    * @param iterations number of iterations performed
@@ -495,7 +499,7 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
   def awaitPostAttemptCount(service: YarnHistoryService, posts: Long): Unit = {
     awaitCount(posts, TEST_STARTUP_DELAY,
       () => service.postAttempts,
-      () => s"Post count in $service")
+      s"Post count in $service")
   }
 
   /**
@@ -507,7 +511,7 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
   def awaitPostSuccessCount(service: YarnHistoryService, posts: Long): Unit = {
     awaitCount(posts, TEST_STARTUP_DELAY,
       () => service.postSuccesses,
-      () => s"Post count in $service")
+      s"Post count in $service")
   }
 
   /**
@@ -519,12 +523,12 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
    * @param diagnostics diagnostics string evaluated on timeout
    */
   def awaitCount(expected: Long, timeout: Long,
-      counter: () => Long, diagnostics: () => String): Unit = {
+      counter: () => Long, diagnostics: => String): Unit = {
     spinForState(s"awaiting probe count of $expected",
       50, timeout,
       () => outcomeFromCounter(expected, counter()),
       (_, _, _) =>
-        fail(s"Expected $expected equalled ${counter()} after $timeout mS: ${diagnostics()}"))
+        fail(s"Expected $expected equalled ${counter()} after $timeout mS: ${diagnostics}"))
   }
 
   /**
@@ -536,12 +540,12 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
    * @param diagnostics diagnostics string evaluated on timeout
    */
   def awaitAtLeast(expected: Long, timeout: Long,
-      counter: () => Long, diagnostics: () => String): Unit = {
+      counter: () => Long, diagnostics: => String): Unit = {
     spinForState(s"awaiting probe count of at least $expected",
       50, timeout,
       () => outcomeAtLeast(expected, counter()),
       (_, _, _) =>
-        fail(s"Expected >= $expected got ${counter()} after $timeout mS: ${diagnostics()}"))
+        fail(s"Expected >= $expected got ${counter()} after $timeout mS: ${diagnostics}"))
   }
 
 

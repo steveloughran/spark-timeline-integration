@@ -142,7 +142,7 @@ abstract class AbstractYarnHistoryTests
       // only 2 post events, as the update does not trigger a post unless batch size == 1
       awaitAtLeast(2, TEST_STARTUP_DELAY,
         () => service.postAttempts,
-        () => s"Post count in $service")
+        s"Post count in $service")
     } finally {
       // because the events have been processed and waited for,
       // a duplicate end event will not be posted

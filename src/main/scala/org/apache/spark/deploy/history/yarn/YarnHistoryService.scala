@@ -379,10 +379,14 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
       DEFAULT_SHUTDOWN_WAIT_TIME)
 
     // the full metrics integration happens if the spark context has a metrics system
+/* TODO: METRICS. Broken by SPARK-13413
+   TODO: re-enable when a metrics system is accessible again
+
     val metricsSystem = sparkContext.metricsSystem
     if (metricsSystem != null) {
       metricsSystem.registerSource(metrics)
     }
+*/
 
     // set up the timeline service, unless it's been disabled for testing
     if (timelineServiceEnabled) {
@@ -570,10 +574,12 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
     try {
       stopQueue()
     } finally {
+/* TODO: METRICS. Broken by SPARK-13413
       if (sparkContext.metricsSystem != null) {
         // unregister from metrics
         sparkContext.metricsSystem.removeSource(metrics)
       }
+*/
     }
   }
 

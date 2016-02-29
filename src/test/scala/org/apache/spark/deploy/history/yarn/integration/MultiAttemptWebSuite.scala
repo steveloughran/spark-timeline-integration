@@ -24,7 +24,7 @@ import scala.language.postfixOps
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
 import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
 import org.apache.spark.deploy.history.yarn.server.TimelineQueryClient._
-import org.apache.spark.deploy.history.yarn.server.{Ls, YarnHistoryProvider}
+import org.apache.spark.deploy.history.yarn.server.{TimelineQueryClient, YarnHistoryProvider}
 import org.apache.spark.deploy.history.yarn.server.YarnProviderUtils._
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
 
@@ -32,6 +32,8 @@ import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
  * Create a completed app from multiple app attempts and fetch from Web UI
  */
 class MultiAttemptWebSuite extends AbstractHistoryIntegrationTests {
+
+  override def useMiniHDFS: Boolean = true
 
   test("Multi-attempt web UI") {
     def submitAndCheck(webUI: URL, provider: YarnHistoryProvider): Unit = {
@@ -42,11 +44,8 @@ class MultiAttemptWebSuite extends AbstractHistoryIntegrationTests {
       stopContextAndFlushHistoryService()
 
       val expectedAppId = historyService.applicationId.toString
+      val timelineEntities = awaitEntityListSize(queryClient, 2)
 
-      // validate ATS has it
-      val timelineEntities = queryClient.listEntities(SPARK_EVENT_ENTITY_TYPE,
-          fields = Seq(PRIMARY_FILTERS, OTHER_INFO))
-      assert(2 === timelineEntities.size, "entities listed by app end filter")
       val head = timelineEntities.head
       val attempt1 = attemptId1.toString
       val attempt2 = attemptId2.toString
@@ -89,12 +88,6 @@ class MultiAttemptWebSuite extends AbstractHistoryIntegrationTests {
 
       describe("looking at REST UI")
       awaitHistoryRestUIContainsApp(connector, webUI, expectedAppId, true, TEST_STARTUP_DELAY)
-
-      // now try out the ls command
-      val ls = new Ls()
-      ls.setConf(conf)
-      ls.exec(Seq()) should be (0)
-      ls.exec(Seq(attempt1SparkId)) should be (0)
     }
 
     webUITest("submit and check", submitAndCheck)

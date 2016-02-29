@@ -25,12 +25,12 @@ import org.apache.spark.deploy.history.yarn.server.{TimelineApplicationHistoryIn
 import org.apache.spark.deploy.history.yarn.server.YarnProviderUtils._
 import org.apache.spark.deploy.history.yarn.testtools.ExtraAssertions
 import org.apache.spark.scheduler.cluster.{StubApplicationAttemptId, StubApplicationId}
-import org.apache.spark.{Logging, SparkFunSuite}
+import org.apache.spark.SparkFunSuite
 
 /**
  * Test of utility methods in [[org.apache.spark.deploy.history.yarn.server.YarnProviderUtils]]
  */
-class YarnProviderUtilsSuite extends SparkFunSuite with Logging
+class YarnProviderUtilsSuite extends SparkFunSuite
   with ExtraAssertions with Matchers {
 
   def historyInfo(

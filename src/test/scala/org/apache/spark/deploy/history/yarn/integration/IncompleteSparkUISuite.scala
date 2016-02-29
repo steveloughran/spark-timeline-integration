@@ -36,6 +36,7 @@ import org.apache.spark.util.Utils
  */
 class IncompleteSparkUISuite extends AbstractHistoryIntegrationTests with Eventually {
 
+  override def useMiniHDFS: Boolean = true
 
   test("incomplete UI must not be cached") {
     def submitAndCheck(webUI: URL, provider: YarnHistoryProvider): Unit = {

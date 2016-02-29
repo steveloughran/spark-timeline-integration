@@ -18,14 +18,14 @@
 package org.apache.spark.deploy.history.yarn.integration
 
 import java.io.{File, IOException}
-import java.net.{URI, URL}
+import java.net.URL
 import java.util.logging.Logger
 
 import scala.collection.mutable
 
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{LocalFileSystem, LocalFileSystemConfigKeys, FileSystem, Path}
+import org.apache.hadoop.fs.{CommonConfigurationKeysPublic, FileSystem, LocalFileSystemConfigKeys, Path}
 import org.apache.hadoop.security.token.delegation.web.DelegationTokenAuthenticatedURL.Token
 import org.apache.hadoop.service.ServiceOperations
 import org.apache.hadoop.yarn.api.records.timeline.{TimelineEntity, TimelineEvent, TimelinePutResponse}
@@ -36,6 +36,8 @@ import org.json4s.JValue
 import org.json4s.jackson.JsonMethods
 import org.scalatest.concurrent.Eventually
 
+import org.apache.spark.deploy.history.yarn.YarnHistoryService._
+import org.apache.spark.deploy.history.yarn.server.TimelineQueryClient._
 import org.apache.spark.{SecurityManager, SparkConf}
 import org.apache.spark.deploy.history.{ApplicationHistoryProvider, FsHistoryProvider, HistoryServer}
 import org.apache.spark.deploy.history.yarn.{YarnHistoryService, YarnTimelineUtils}
@@ -45,7 +47,7 @@ import org.apache.spark.deploy.history.yarn.rest.SpnegoUrlConnector
 import org.apache.spark.deploy.history.yarn.server.{TimelineQueryClient, YarnHistoryProvider}
 import org.apache.spark.deploy.history.yarn.server.YarnHistoryProvider._
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
-import org.apache.spark.deploy.history.yarn.testtools.{AbstractYarnHistoryTests, FreePortFinder, HistoryServiceNotListeningToSparkContext, TimelineServiceEnabled}
+import org.apache.spark.deploy.history.yarn.testtools.{SharedMiniFS, AbstractYarnHistoryTests, FreePortFinder, HistoryServiceNotListeningToSparkContext, TimelineServiceEnabled}
 import org.apache.spark.scheduler.SparkListenerEvent
 import org.apache.spark.scheduler.cluster.SchedulerExtensionServices
 import org.apache.spark.ui.SparkUI
@@ -67,6 +69,7 @@ abstract class AbstractHistoryIntegrationTests
   protected var _timelineClient: TimelineClient = _
   protected var historyService: YarnHistoryService = _
   protected var sparkHistoryServer: HistoryServer = _
+  protected var fileSystem: FileSystem = _
 
   protected val attempt1SparkId = "spark_id_1"
   protected val attempt2SparkId = "spark_id_2"
@@ -88,13 +91,18 @@ abstract class AbstractHistoryIntegrationTests
     _timelineClient
   }
 
-  /*
-   * Setup phase creates a local ATS server and a client of it
-   */
+  def useMiniHDFS: Boolean = false
 
+  /**
+   * Setup phase creates all services needed for the tests.
+   * 1. A local YARN ATS server.
+   * 2. A client of the timeline server.
+   * 3. A mini HDFS cluster
+   */
   override def setup(): Unit = {
     // abort the tests if the server is offline
     cancelIfOffline()
+    startFilesystem()
     super.setup()
     // WADL generator complains needlessly about scala introspection failures.
     val logger =
@@ -104,8 +112,8 @@ abstract class AbstractHistoryIntegrationTests
   }
 
   /**
-   * Set up base configuratin for integration tests, including
-   * classname bindings in publisher & provider, refresh intervals and a port for the UI
+   * Set up base configuration for integration tests, including
+   * classname bindings in publisher & provider, refresh intervals and a port for the UI.
    * @param sparkConf spark configuration
    * @return the expanded configuration
    */
@@ -118,6 +126,29 @@ abstract class AbstractHistoryIntegrationTests
     sparkConf.set(OPTION_YARN_LIVENESS_CHECKS, "false")
     sparkConf.set(OPTION_WINDOW_LIMIT, "0")
     sparkConf.setAppName(APP_NAME)
+    if (useMiniHDFS) {
+      hadoopOpt(sparkConf, CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY,
+        fileSystem.getUri.toASCIIString)
+    }
+    sparkConf
+  }
+
+  /**
+   * Create filesystem.
+   *
+   * There's a little bit of recursion here in that a configuration may be needed,
+   * it can't be the one from the spark context, as that one needs to have the filesystem
+   * URI passed in...which can only be done if the port of the FS is known.
+   *
+   * This is addressed by creating a new, empty Hadoop configuration instance and letting
+   * the MiniHDFSCluster start up off that
+   */
+  protected def startFilesystem(): Unit = {
+    if (useMiniHDFS) {
+      fileSystem = SharedMiniFS.retrieve(new Configuration())
+    } else {
+      fileSystem = FileSystem.get(new Configuration())
+    }
   }
 
   /**
@@ -485,6 +516,26 @@ abstract class AbstractHistoryIntegrationTests
   }
 
   /**
+   * Await a the list of entities to match a basic unfiltered listing to match the
+   * desired size.
+   * @param queryClient client
+   * @param expected expected count
+   * @return the final list, after the check succeeded
+   */
+  def awaitEntityListSize(queryClient: TimelineQueryClient, expected: Int): List[TimelineEntity] = {
+    def list(): List[TimelineEntity] = {
+      listEntities(queryClient)
+    }
+    awaitCount(expected, TEST_STARTUP_DELAY, () => list().size, s"${list()}")
+    list()
+  }
+
+  def listEntities(qc: TimelineQueryClient) = {
+    qc.listEntities(SPARK_EVENT_ENTITY_TYPE,
+      fields = Seq(PRIMARY_FILTERS, OTHER_INFO))
+  }
+
+  /**
    * Assert that a list of checks are in the HTML body
    * @param body body of HTML (or other string)
    * @param checks list of strings to assert are present
@@ -550,6 +601,7 @@ abstract class AbstractHistoryIntegrationTests
     logDebug("posting app start")
     val startTime = 10000
     historyService = startHistoryService(sc, applicationId, Some(attemptId1))
+    started(historyService)
     val start1 = appStartEvent(startTime,
       sc.applicationId,
       Utils.getCurrentUserName(),
@@ -574,6 +626,7 @@ abstract class AbstractHistoryIntegrationTests
     enqueue(appStopEvent(20003))
 
     awaitEmptyQueue(historyService, TEST_STARTUP_DELAY)
+    completed(historyService)
   }
 
   /**
@@ -609,32 +662,32 @@ abstract class AbstractHistoryIntegrationTests
   def enableATS1_5(conf: Configuration): Unit = {
     val projectBuildDir = new File(System.getProperty("project.build.dir",
       System.getProperty("java.io.tmpdir")))
-    val atsDir = new File(projectBuildDir, "ats")
-    FileUtils.deleteDirectory(atsDir)
-    atsDir.mkdirs()
+    val integrationDir = new File(projectBuildDir, "integration")
+    FileUtils.deleteDirectory(integrationDir)
+    integrationDir.mkdirs()
+    val leveldbDir = new File(integrationDir, "leveldb")
+    leveldbDir.mkdirs()
 
 
     conf.setFloat(TIMELINE_SERVICE_VERSION, 1.5f)
-    conf.setBoolean("fs.file.impl.disable.cache", false)
     // try to turn off checksums
     conf.setInt(TIMELINE_SERVICE_CLIENT_FD_FLUSH_INTERVAL_SECS, 1)
     conf.setInt(TIMELINE_SERVICE_CLIENT_FD_RETAIN_SECS, 1)
-    conf.setInt(LocalFileSystemConfigKeys.LOCAL_FS_BYTES_PER_CHECKSUM_KEY, 2)
 
-    val fs = FileSystem.get(conf)
-    val localFS = fs.asInstanceOf[LocalFileSystem]
-    // turn off checksums. Provided everything shares the same FS, no flush problems
-    localFS.setWriteChecksum(false)
-    localFS.setVerifyChecksum(false)
+    val fs = fileSystem
+    var atsPath: Path  = if (useMiniHDFS) {
+      fs.makeQualified(new Path("/history"))
+    } else {
+      fs.makeQualified(new Path(new File(integrationDir, "ats").toURI))
+    }
 
-    val atsPath = fs.makeQualified(new Path(atsDir.toURI))
     logInfo(s"ATS Directory is at $atsPath in filesystem $fs")
-
+    fs.delete(atsPath, true)
     val activeDir = new Path(atsPath, "active")
     fs.mkdirs(activeDir)
     val doneDir = new Path(atsPath, "done")
     fs.mkdirs(doneDir)
-    val leveldbDir = new File(atsDir, "leveldb")
+
     conf.set(TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_ACTIVE_DIR, activeDir.toUri.toString)
     conf.set(TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_DONE_DIR, doneDir.toUri.toString)
     conf.set(TIMELINE_SERVICE_LEVELDB_PATH, leveldbDir.getAbsolutePath)

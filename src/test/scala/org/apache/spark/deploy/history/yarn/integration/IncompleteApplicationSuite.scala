@@ -36,7 +36,10 @@ class IncompleteApplicationSuite extends AbstractHistoryIntegrationTests {
 
   val EVENT_PROCESSED_TIMEOUT = 2000
 
+  override def useMiniHDFS: Boolean = true
+
   test("Get the web UI of an incomplete application") {
+
     def submitAndCheck(webUI: URL, provider: YarnHistoryProvider): Unit = {
       val connector = createUrlConnector()
 
@@ -82,9 +85,8 @@ class IncompleteApplicationSuite extends AbstractHistoryIntegrationTests {
       // validate ATS has it
       describe("App completed —probing for state change")
       val queryClient = createTimelineQueryClient()
-      val timelineEntities = queryClient.listEntities(SPARK_EVENT_ENTITY_TYPE,
-              primaryFilter = Some((FILTER_APP_END, FILTER_APP_END_VALUE)))
-      assert(1 === timelineEntities.size, "entities listed by app end filter")
+
+      val timelineEntities = awaitEntityListSize(queryClient, 1)
       assert(attemptId === timelineEntities.head.getEntityId,
         "attemptId === timelineEntities.head.getEntityId")
 

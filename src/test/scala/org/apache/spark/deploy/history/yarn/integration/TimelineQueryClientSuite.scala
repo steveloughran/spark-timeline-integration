@@ -25,7 +25,7 @@ import org.apache.hadoop.yarn.api.records.timeline.TimelineEntity
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
 import org.apache.spark.deploy.history.yarn.rest.HttpRequestException
 import org.apache.spark.deploy.history.yarn.rest.JerseyBinding._
-import org.apache.spark.deploy.history.yarn.server.TimelineQueryClient
+import org.apache.spark.deploy.history.yarn.server.{Ls, TimelineQueryClient}
 import org.apache.spark.deploy.history.yarn.server.TimelineQueryClient._
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
 
@@ -82,6 +82,16 @@ class TimelineQueryClientSuite extends AbstractHistoryIntegrationTests {
     assertNilQuery(SPARK_EVENT_ENTITY_TYPE, Seq(EVENTS))
   }
 
+  test("Ls command") {
+
+    val ls = new Ls()
+    ls.setConf(historyService.yarnConfiguration)
+    ls.exec(Seq()) should be(0)
+    ls.exec(Seq(applicationId.toString)) should be(44)
+    ls.exec(Seq("unparseable")) should be(-1)
+  }
+
+
   test("PostEntity") {
     describe("post an entity and then retrieve it")
     val te = new TimelineEntity
@@ -105,6 +115,10 @@ class TimelineQueryClientSuite extends AbstractHistoryIntegrationTests {
     assert(1 === listing2.size, s"filtering on $FILTER_APP_START:$FILTER_APP_START_VALUE")
     // filtered query
     assertEntitiesEqual(te, listing2.head)
+
+    val ls = new Ls()
+    ls.setConf(historyService.yarnConfiguration)
+    ls.exec(Seq(applicationId.toString)) should be(0)
   }
 
   def createTimelineClientRootPath(): TimelineQueryClient = {
@@ -126,8 +140,7 @@ class TimelineQueryClientSuite extends AbstractHistoryIntegrationTests {
     val ex = intercept[HttpRequestException] {
       client.endpointCheck()
     }
-    log.debug(s"GET $client", ex)
-    assertContains(ex.toString(), "text/html")
+    assertExceptionMessageContains(ex, "text/html")
   }
 
 }

@@ -16,6 +16,8 @@
     <scala.binary.version>2.11</scala.binary.version>
     <scala.version>2.11.7</scala.version>
     <scala.version.tools>${scala.version}</scala.version.tools>
+    <MaxPermGen>512m</MaxPermGen>
+    <CodeCacheSize>512m</CodeCacheSize>
 
     <!--library versions-->
     <codehaus.jackson.version>1.9.13</codehaus.jackson.version>
@@ -23,6 +25,7 @@
     <hadoop.version>2.8.0-SNAPSHOT</hadoop.version>
     <jersey.version>1.9</jersey.version>
     <jetty.version>8.1.14.v20131031</jetty.version>
+    <netty-all.version>4.1.0.Beta5</netty-all.version>
 
 
     <!-- plugin versions -->
@@ -124,6 +127,33 @@
       <version>${hadoop.version}</version>
       <classifier>tests</classifier>
       <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-hdfs</artifactId>
+      <version>${hadoop.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-hdfs</artifactId>
+      <version>${hadoop.version}</version>
+      <classifier>tests</classifier>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-common</artifactId>
+      <version>${hadoop.version}</version>
+      <classifier>tests</classifier>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-all</artifactId>
+      <version>${netty-all.version}</version>
+      <scope>compile</scope>
     </dependency>
 
     <dependency>
@@ -410,6 +440,7 @@
             <include>**/*Suite.java</include>
           </includes>
           <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
+          <argLine>-ea -Xmx3g -Xss4096k -XX:MaxPermSize=${MaxPermGen} -XX:ReservedCodeCacheSize=512m</argLine>
 
           <systemProperties>
             <java.awt.headless>true</java.awt.headless>
@@ -434,7 +465,7 @@
           <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
           <junitxml>.</junitxml>
           <filereports>SparkTestSuite.txt</filereports>
-          <argLine>-ea</argLine>
+          <argLine>-ea -Xmx3g -Xss4096k -XX:MaxPermSize=${MaxPermGen} -XX:ReservedCodeCacheSize=512m</argLine>
           <stderr/>
           <environmentVariables>
           </environmentVariables>

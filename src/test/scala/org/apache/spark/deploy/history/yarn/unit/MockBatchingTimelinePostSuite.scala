@@ -41,7 +41,7 @@ class MockBatchingTimelinePostSuite extends AbstractMockHistorySuite
     // now await some retries asynchronously
     awaitAtLeast(2, TEST_STARTUP_DELAY,
       () => service.postAttempts,
-      () => s"Post count in $service")
+      s"Post count in $service")
     service.stop()
     awaitServiceThreadStopped(service, TEST_STARTUP_DELAY)
     // there should have been three flushed

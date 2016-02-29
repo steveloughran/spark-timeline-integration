@@ -17,6 +17,9 @@
 
 package org.apache.spark.deploy.history.yarn.integration
 
+import scala.concurrent.duration._
+import scala.language.postfixOps
+
 import org.apache.hadoop.yarn.api.records.YarnApplicationState
 
 import org.apache.spark.deploy.history.yarn.YarnHistoryService
@@ -48,6 +51,8 @@ class YarnHistoryProviderWindowSuite
   val appId1 = appReport1.getApplicationId.toString
   val appId2 = appReport2.getApplicationId.toString
   val user = Utils.getCurrentUserName()
+
+  override def useMiniHDFS: Boolean = true
 
   test("YarnHistoryProviderWindow") {
     describe("Windowed publishing across apps")
@@ -128,6 +133,13 @@ class YarnHistoryProviderWindowSuite
       val listing2 = provider.getListing()
       logInfo(s"Listing 2: $listing2")
       // which had better be updated or there are refresh problems
+      val stdTimeout = timeout(10 seconds)
+      val stdInterval = interval(100 milliseconds)
+      eventually(stdTimeout, stdInterval) {
+        assert(listing1 !== listing2, s"updated listing was unchanged from $provider")
+
+      }
+
       assert(listing1 !== listing2, s"updated listing was unchanged from $provider")
       // get the updated value and expect it to be complete
       assertAppCompleted(lookupApplication(listing2, expectedAppId1), s"app1 in L2 $listing2")
