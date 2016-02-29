@@ -22,7 +22,8 @@ import scala.language.postfixOps
 
 import org.apache.hadoop.yarn.api.records.YarnApplicationState
 
-import org.apache.spark.deploy.history.yarn.YarnHistoryService
+import org.apache.spark.deploy.history.yarn.{YarnTimelineUtils, YarnHistoryService}
+import org.apache.spark.deploy.history.yarn.server.YarnProviderUtils
 import org.apache.spark.deploy.history.yarn.server.YarnProviderUtils._
 import org.apache.spark.deploy.history.yarn.testtools.{HistoryServiceNotListeningToSparkContext, TimelineSingleEntryBatchSize}
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
@@ -51,9 +52,16 @@ class YarnHistoryProviderWindowSuite
   val appId1 = appReport1.getApplicationId.toString
   val appId2 = appReport2.getApplicationId.toString
   val user = Utils.getCurrentUserName()
+  val stdTimeout = timeout(10 seconds)
+  val stdInterval = interval(100 milliseconds)
 
   override def useMiniHDFS: Boolean = true
 
+  /**
+   * Verifies that window tracking doesn't ever move the scan window after an incomplete app.
+   * That is: it blocks at the last (running) incomplete app in the listing, even
+   * after completed ones come in after.
+   */
   test("YarnHistoryProviderWindow") {
     describe("Windowed publishing across apps")
     var history2: YarnHistoryService = null
@@ -72,7 +80,6 @@ class YarnHistoryProviderWindowSuite
       flushHistoryServiceToSuccess(historyService)
 
       // a new application is started before the current history is started
-
       describe("application 2")
       // the second application starts then stops after the first one
       val applicationId2 = appReport2.getApplicationId
@@ -80,7 +87,6 @@ class YarnHistoryProviderWindowSuite
       val expectedAppId2 = applicationId2.toString
       history2 = startHistoryService(sc, applicationId2,
       Some(appReport2.getCurrentApplicationAttemptId))
-
 
       val start2 = appStartEvent(start2Time, appId2, user, Some("2222"))
       history2.enqueue(start2)
@@ -118,6 +124,19 @@ class YarnHistoryProviderWindowSuite
 
       // move time forwards
       provider.incrementTime(5 * minute)
+
+      // query history service direct for the app, by listing entities and
+      // asserting that one is valid
+      val queryClient = createTimelineQueryClient()
+      eventually(stdTimeout, stdInterval) {
+        val entities = listEntities(queryClient)
+        val entity = entities.find(_.getEntityId == expectedAppId1 ).get
+        val asAppHistory = YarnProviderUtils.toApplicationHistoryInfo(entity)
+        assert (asAppHistory.completed,
+          s"App never completed; history=$asAppHistory," +
+          s"entity=${YarnTimelineUtils.describeEntity(entity)}")
+      }
+
       // Now await a refresh
       describe("read in listing #2")
 
@@ -133,14 +152,10 @@ class YarnHistoryProviderWindowSuite
       val listing2 = provider.getListing()
       logInfo(s"Listing 2: $listing2")
       // which had better be updated or there are refresh problems
-      val stdTimeout = timeout(10 seconds)
-      val stdInterval = interval(100 milliseconds)
       eventually(stdTimeout, stdInterval) {
         assert(listing1 !== listing2, s"updated listing was unchanged from $provider")
-
       }
 
-      assert(listing1 !== listing2, s"updated listing was unchanged from $provider")
       // get the updated value and expect it to be complete
       assertAppCompleted(lookupApplication(listing2, expectedAppId1), s"app1 in L2 $listing2")
       assertAppCompleted(lookupApplication(listing2, expectedAppId1), s"app2 in L2 $listing2")

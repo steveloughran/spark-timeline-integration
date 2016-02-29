@@ -17,8 +17,10 @@
 
 package org.apache.spark.deploy.history.yarn.testtools
 
+import java.io.File
+
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.hadoop.fs.{FileUtil, FileSystem, Path}
 import org.apache.hadoop.hdfs.{DFSConfigKeys, MiniDFSCluster}
 import org.apache.hadoop.hdfs.MiniDFSCluster.Builder
 
@@ -46,6 +48,11 @@ object SharedMiniFS extends Logging {
       val fs = getFileSystem()
       fs.delete(new Path("/"), true)
     } else {
+      val projectBuildDir = new File(System.getProperty("project.build.dir",
+        System.getProperty("java.io.tmpdir")))
+      val miniclusterDir = new File(projectBuildDir, "minicluster")
+      FileUtil.fullyDelete(miniclusterDir)
+      conf.set(MiniDFSCluster.HDFS_MINIDFS_BASEDIR, miniclusterDir.getAbsolutePath)
       conf.setInt(DFSConfigKeys.DFS_DATANODE_METRICS_LOGGER_PERIOD_SECONDS_KEY, 0)
       conf.setInt(DFSConfigKeys.DFS_NAMENODE_METRICS_LOGGER_PERIOD_SECONDS_KEY, 0)
       val builder = new Builder(conf)

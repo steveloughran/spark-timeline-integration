@@ -235,7 +235,7 @@ private[spark] object YarnTimelineUtils extends Logging {
    * @return a string description.
    */
   def describeEntity(entity: TimelineEntity): String = {
-    val events: util.List[TimelineEvent] = entity.getEvents
+    val events = entity.getEvents
     val eventSummary = if (events != null) {
       s"contains ${events.size()} event(s)"
     } else {
