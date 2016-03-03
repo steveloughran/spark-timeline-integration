@@ -41,6 +41,14 @@ object SharedMiniFS extends Logging {
 
   var cluster: Option[MiniDFSCluster] = None
 
+  /**
+    * Retrieve or create the cluster.
+    * If the cluster existed, delete all its data.
+    * If it does not exist, create it in the directory `${project.build.dir}/minicluster`
+    * (falling back to `java.io.tmpdir` if the system property `project.build.dir` is unset.
+    *
+    * @param conf configuration to use if creating a new cluster.
+    */
   def retrieve(conf: Configuration): FileSystem = {
 
     if (cluster.isDefined) {
@@ -48,11 +56,13 @@ object SharedMiniFS extends Logging {
       val fs = getFileSystem()
       fs.delete(new Path("/"), true)
     } else {
+      // set up the directory path
       val projectBuildDir = new File(System.getProperty("project.build.dir",
         System.getProperty("java.io.tmpdir")))
       val miniclusterDir = new File(projectBuildDir, "minicluster")
       FileUtil.fullyDelete(miniclusterDir)
       conf.set(MiniDFSCluster.HDFS_MINIDFS_BASEDIR, miniclusterDir.getAbsolutePath)
+      // turn off metrics log noise
       conf.setInt(DFSConfigKeys.DFS_DATANODE_METRICS_LOGGER_PERIOD_SECONDS_KEY, 0)
       conf.setInt(DFSConfigKeys.DFS_NAMENODE_METRICS_LOGGER_PERIOD_SECONDS_KEY, 0)
       val builder = new Builder(conf)

@@ -23,11 +23,10 @@ import scala.language.postfixOps
 import org.apache.hadoop.yarn.api.records.YarnApplicationState
 
 import org.apache.spark.deploy.history.yarn.{YarnTimelineUtils, YarnHistoryService}
-import org.apache.spark.deploy.history.yarn.server.YarnProviderUtils
+import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
 import org.apache.spark.deploy.history.yarn.server.YarnProviderUtils._
 import org.apache.spark.deploy.history.yarn.testtools.{HistoryServiceNotListeningToSparkContext, TimelineSingleEntryBatchSize}
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
-import org.apache.spark.scheduler.cluster.StubApplicationAttemptId
 import org.apache.spark.util.Utils
 
 /**
@@ -69,6 +68,7 @@ class YarnHistoryProviderWindowSuite
     try {
       logDebug("Start application 1")
       val expectedAppId1 = appReport1.getApplicationId
+      val attemptId1 = appReport1.getCurrentApplicationAttemptId
       historyService = startHistoryService(sc, expectedAppId1,
         Some(appReport1.getCurrentApplicationAttemptId))
       assert(!historyService.listening, s"listening $historyService")
@@ -83,7 +83,7 @@ class YarnHistoryProviderWindowSuite
       describe("application 2")
       // the second application starts then stops after the first one
       val applicationId2 = appReport2.getApplicationId
-      val attemptId2 = new StubApplicationAttemptId(applicationId2, 2)
+      val attemptId2 = appReport2.getCurrentApplicationAttemptId
       val expectedAppId2 = applicationId2.toString
       history2 = startHistoryService(sc, applicationId2,
       Some(appReport2.getCurrentApplicationAttemptId))
@@ -130,11 +130,14 @@ class YarnHistoryProviderWindowSuite
       val queryClient = createTimelineQueryClient()
       eventually(stdTimeout, stdInterval) {
         val entities = listEntities(queryClient)
-        val entity = entities.find(_.getEntityId == expectedAppId1 ).get
-        val asAppHistory = YarnProviderUtils.toApplicationHistoryInfo(entity)
+        val entityNames = entities.map(_.getEntityId).mkString(" ")
+        val maybeEntity1 = entities.find(_.getEntityId == attemptId1.toString)
+        assertSome(maybeEntity1, s"Did not find attempt $attemptId1 in $entityNames")
+        val entity = maybeEntity1.get
+        val asAppHistory = toApplicationHistoryInfo(entity)
         assert (asAppHistory.completed,
           s"App never completed; history=$asAppHistory," +
-          s"entity=${YarnTimelineUtils.describeEntity(entity)}")
+          s"entity=${describeEntity(entity)}")
       }
 
       // Now await a refresh
