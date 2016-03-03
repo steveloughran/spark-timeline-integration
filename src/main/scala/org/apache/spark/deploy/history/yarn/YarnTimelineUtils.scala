@@ -17,7 +17,7 @@
 
 package org.apache.spark.deploy.history.yarn
 
-import java.{lang, util}
+import java.lang
 import java.io.IOException
 import java.net.{InetSocketAddress, NoRouteToHostException, URI, URL}
 import java.text.DateFormat
@@ -35,7 +35,7 @@ import org.apache.hadoop.yarn.api.records.timeline.{TimelineEntity, TimelineEven
 import org.apache.hadoop.yarn.client.api.TimelineClient
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.json4s.{MappingException, JValue}
-import org.json4s.JsonAST.{JNull, JNothing, JArray, JBool, JDecimal, JDouble, JString, JInt, JObject}
+import org.json4s.JsonAST.{JArray, JBool, JDecimal, JDouble, JInt, JNull, JNothing, JObject, JString}
 import org.json4s.jackson.JsonMethods._
 
 import org.apache.spark
@@ -133,7 +133,8 @@ private[spark] object YarnTimelineUtils extends Logging {
   /**
    * Convert a timeline event to a spark one. Includes some basic checks for validity of
    * the event payload.
-   * @param event timeline event
+    *
+    * @param event timeline event
    * @return an unmarshalled event
    */
   def toSparkEvent(event: TimelineEvent): SparkListenerEvent = {
@@ -173,7 +174,8 @@ private[spark] object YarnTimelineUtils extends Logging {
 
   /**
    * Convert a spark event to a timeline event
-   * @param event handled spark event
+    *
+    * @param event handled spark event
    * @return a timeline event if it could be marshalled
    */
   def toTimelineEvent(event: SparkListenerEvent, timestamp: Long): Option[TimelineEvent] = {
@@ -231,7 +233,8 @@ private[spark] object YarnTimelineUtils extends Logging {
 
   /**
    * Describe a timeline entity.
-   * @param entity entity
+    *
+    * @param entity entity
    * @return a string description.
    */
   def describeEntity(entity: TimelineEntity): String = {
@@ -357,7 +360,8 @@ private[spark] object YarnTimelineUtils extends Logging {
    * a networking perspective.
    *
    * Does not perform any checks as to whether or not the timeline service is enabled
-   * @param conf configuration
+    *
+    * @param conf configuration
    * @return the URI to the timeline service.
    */
   def getTimelineEndpoint(conf: Configuration): URI = {
@@ -377,7 +381,8 @@ private[spark] object YarnTimelineUtils extends Logging {
   /**
    * Create a URI to the history service. This uses the entity type of
    * [[YarnHistoryService#ENTITY_TYPE]] for spark application histories.
-   * @param conf hadoop configuration to examine
+    *
+    * @param conf hadoop configuration to examine
    * @return
    */
   def timelineWebappUri(conf: Configuration): URI = {
@@ -407,10 +412,28 @@ private[spark] object YarnTimelineUtils extends Logging {
   }
 
   /**
+    * Returns the timeline service version. It does not check whether the
+    * timeline service itself is enabled.
+    *
+    * @param conf the configuration
+    * @return the timeline service version as a float.
+    */
+  def getTimelineServiceVersion(conf: Configuration): Float = {
+    conf.getFloat(YarnConfiguration.TIMELINE_SERVICE_VERSION,
+      YarnConfiguration.DEFAULT_TIMELINE_SERVICE_VERSION);
+  }
+
+  def timelineServiceV1_5Enabled(conf: Configuration): Boolean = {
+    timelineServiceEnabled(conf) &&
+        Math.abs(getTimelineServiceVersion(conf) - 1.5) < 0.00001;
+  }
+
+  /**
    * Get the URI to an application under the timeline
    * (this requires the applicationID to have been used to
    * publish entities there)
-   * @param timelineUri timeline URI
+    *
+    * @param timelineUri timeline URI
    * @param appId App ID (really, the entityId used to publish)
    * @return the path
    */
@@ -442,7 +465,8 @@ private[spark] object YarnTimelineUtils extends Logging {
 
   /**
    * Convert a timeline error response to a slightly more meaningful string.
-   * @param error error
+    *
+    * @param error error
    * @return text for diagnostics
    */
   def describeError(error: TimelinePutError): String = {
@@ -502,7 +526,8 @@ private[spark] object YarnTimelineUtils extends Logging {
 
   /**
    * Lookup a field in the `otherInfo` section of a [[TimelineEntity]]
-   * @param en entity
+    *
+    * @param en entity
    * @param name field name
    * @return the value converted to a string
    * @throws Exception if the field is not found
@@ -540,7 +565,8 @@ private[spark] object YarnTimelineUtils extends Logging {
    * Take a sequence of timeline events and return an ordered list of spark events.
    *
    * Important: this reverses the input in the process.
-   * @param events event sequence
+    *
+    * @param events event sequence
    * @return spark event sequence
    */
   def asSparkEvents(events: Seq[TimelineEvent]): Seq[SparkListenerEvent] = {
@@ -615,7 +641,8 @@ private[spark] object YarnTimelineUtils extends Logging {
    * If the application doesn't have an attempt ID, then it is
    * an application instance which, implicitly, is single-attempt.
    * The value [[SINGLE_ATTEMPT]] is returned
-   * @param sparkAttemptId attempt ID
+    *
+    * @param sparkAttemptId attempt ID
    * @return the attempt ID.
    */
   def buildApplicationAttemptIdField(sparkAttemptId: Option[String]): String = {
@@ -770,38 +797,4 @@ private[spark] object YarnTimelineUtils extends Logging {
     endpoint
   }
 
-  /**
-   * Returns the timeline service version. It does not check whether the
-   * timeline service itself is enabled.
-   *
-   * @param conf the configuration
-   * @return the timeline service version as a float.
-   */
-  def getTimelineServiceVersion (conf: Configuration): Float = {
-    conf.getFloat(YarnConfiguration.TIMELINE_SERVICE_VERSION,
-      YarnConfiguration.DEFAULT_TIMELINE_SERVICE_VERSION);
-  }
-
-
-  def timelineServiceV1_5Enabled(conf: Configuration): Boolean = {
-    timelineServiceEnabled(conf) &&
-        Math.abs(getTimelineServiceVersion(conf) - 1.5) < 0.00001;
-  }
-  /*
-
-
-
-  /**
-   * Returns whether the timeline service v.1.5 is enabled via configuration.
-   *
-   * @param conf the configuration
-   * @return whether the timeline service v.1.5 is enabled. V.1.5 refers to a
-   * version equal to 1.5.
-   */
-  public static boolean timelineServiceV1_5Enabled(Configuration conf) {
-    return timelineServiceEnabled(conf) &&
-        Math.abs(getTimelineServiceVersion(conf) - 1.5) < 0.00001;
-  }
-
-   */
 }

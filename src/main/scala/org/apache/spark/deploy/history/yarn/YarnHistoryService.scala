@@ -22,6 +22,8 @@ import java.net.{ConnectException, URI}
 import java.util.concurrent.{LinkedBlockingDeque, TimeUnit}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicLong}
 
+import org.apache.spark.metrics.MetricsSystem
+
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
@@ -87,7 +89,8 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
   /**
    * Atomic operatin to enter a new state, returning the old one.
    * There are no checks on state model.
-   * @param state new state
+    *
+    * @param state new state
    * @return previous state
    */
   private def enterState(state: Int): Int = {
@@ -198,7 +201,8 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
    *
    * The method is private to the package so that tests can access it, which
    * some of the mock tests do to override the timeline client creation.
-   * @return the timeline client
+    *
+    * @return the timeline client
    */
   private[yarn] def createTimelineClient(): TimelineClient = {
     require(_timelineClient.isEmpty, "timeline client already set")
@@ -207,7 +211,8 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
 
   /**
    * Get the timeline client.
-   * @return the client
+    *
+    * @return the client
    * @throws Exception if the timeline client is not currently running
    */
   def timelineClient: TimelineClient = {
@@ -216,14 +221,16 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
 
   /**
    * Get the configuration of this service
-   * @return the configuration as a YarnConfiguration instance
+    *
+    * @return the configuration as a YarnConfiguration instance
    */
   def yarnConfiguration: YarnConfiguration = config
 
   /**
    * Get the total number of events dropped due to the queue of
    * outstanding posts being too long.
-   * @return counter of events processed
+    *
+    * @return counter of events processed
    */
 
   def eventsDropped: Long = metrics.eventsDropped.getCount
@@ -379,14 +386,8 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
       DEFAULT_SHUTDOWN_WAIT_TIME)
 
     // the full metrics integration happens if the spark context has a metrics system
-/* TODO: METRICS. Broken by SPARK-13413
-   TODO: re-enable when a metrics system is accessible again
+    contextMetricsSystem.foreach(_.registerSource(metrics))
 
-    val metricsSystem = sparkContext.metricsSystem
-    if (metricsSystem != null) {
-      metricsSystem.registerSource(metrics)
-    }
-*/
 
     // set up the timeline service, unless it's been disabled for testing
     if (timelineServiceEnabled) {
@@ -413,7 +414,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
       YarnConfiguration.TIMELINE_SERVICE_VERSION,
       YarnConfiguration.DEFAULT_TIMELINE_SERVICE_VERSION)
     _timelineClient = Some(createTimelineClient())
-    timelineVersion1_5 = YarnConfiguration.timelineServiceV1_5Enabled(config)
+    timelineVersion1_5 = timelineServiceV1_5Enabled(config)
     domainId = createTimelineDomain()
     logInfo(s"Spark events will be published to $timelineWebappAddress"
       +s" API version=$version; domain ID = $domainId; client=${_timelineClient.toString}")
@@ -487,7 +488,8 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
    *
    * This is called during startup. It is private to the package so that tests
    * may update this data.
-   * @param appId YARN application ID
+    *
+    * @param appId YARN application ID
    * @param maybeAttemptId optional attempt ID
    */
   private[yarn] def bindToYarnApplication(appId: ApplicationId,
@@ -536,7 +538,8 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
    * Queue an action, or, if the service's `stopped` flag is set, discard it.
    *
    * This is the method called by the event listener when forward events to the service.
-   * @param event event to process
+    *
+    * @param event event to process
    * @return true if the event was queued
    */
   def enqueue(event: SparkListenerEvent): Boolean = {
@@ -574,13 +577,12 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
     try {
       stopQueue()
     } finally {
-/* TODO: METRICS. Broken by SPARK-13413
-      if (sparkContext.metricsSystem != null) {
-        // unregister from metrics
-        sparkContext.metricsSystem.removeSource(metrics)
-      }
-*/
+      contextMetricsSystem.foreach( _.removeSource(metrics))
     }
+  }
+
+  private def contextMetricsSystem: Option[MetricsSystem] = {
+    Option(sparkContext.env.metricsSystem)
   }
 
   /**
@@ -646,7 +648,8 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
    *
    * Returns the size of the event list after the event was added
    * (thread safe).
-   * @param event event to add
+    *
+    * @param event event to add
    * @return the event list size
    */
   private def addPendingEvent(event: TimelineEvent): Int = {
@@ -700,6 +703,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
 
   /**
     * Queue an asynchronous flush operation.
+    *
     * @return if the flush event was queued
     */
   def asyncFlush(): Boolean = {
@@ -708,7 +712,8 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
 
   /**
    * A `StopQueueAction` action has a size of 0
-   * @param currentTime time when action was queued.
+    *
+    * @param currentTime time when action was queued.
    * @param waitTime time for shutdown to wait
    */
   private def pushQueueStop(currentTime: Long, waitTime: Long): Unit = {
@@ -719,7 +724,8 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
   /**
    * Queue an entity for posting; also increases
    * [[postQueueEventSize]] by the size of the entity.
-   * @param timelineEntity entity to push
+    *
+    * @param timelineEntity entity to push
    */
   def queueForPosting(timelineEntity: TimelineEntity): Unit = {
     // queue the entity for posting
@@ -733,7 +739,8 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
   /**
    * Push a `PostQueueAction` to the start of the queue; also increments
    * [[postQueueEventSize]] by the size of the action.
-   * @param action action to push
+    *
+    * @param action action to push
    */
   private def pushToFrontOfQueue(action: PostQueueAction): Unit = {
     postingQueue.push(action)
@@ -744,7 +751,8 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
   /**
     * Take from the posting queue; decrements  [[postQueueEventSize]] by the size
     * of the action.
-   * @return the action
+    *
+    * @return the action
     */
   private def takeFromPostingQueue(): PostQueueAction = {
     val taken = postingQueue.take()
@@ -756,7 +764,8 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
   /**
     * Poll from the posting queue; decrements  [[postQueueEventSize]] by the size
     * of the action.
-   * @return
+    *
+    * @return
     */
   private def pollFromPostingQueue(mills: Long): Option[PostQueueAction] = {
     val taken = postingQueue.poll(mills, TimeUnit.MILLISECONDS)
@@ -770,7 +779,8 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
    *
    * This is just a safety check to catch regressions in the code which
    * publish data that cannot be parsed at the far end.
-   * @param entity timeline entity to review.
+    *
+    * @param entity timeline entity to review.
    */
   private def preflightCheck(entity: TimelineEntity): Unit = {
     require(entity.getStartTime != null,
@@ -781,14 +791,16 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
   private sealed trait PostQueueAction {
     /**
      * Number of events in this entry
-     * @return a natural number
+      *
+      * @return a natural number
      */
     def size: Int
   }
 
   /**
    * A `StopQueueAction` action has a size of 0
-   * @param currentTime time when action was queued.
+    *
+    * @param currentTime time when action was queued.
    * @param waitTime time for shutdown to wait
    */
   private case class StopQueueAction(currentTime: Long, waitTime: Long) extends PostQueueAction {
@@ -1081,7 +1093,8 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
 
   /**
    * Return the current time in milliseconds.
-   * @return system time in milliseconds
+    *
+    * @return system time in milliseconds
    */
   private def now(): Long = {
     clock.getTimeMillis()
