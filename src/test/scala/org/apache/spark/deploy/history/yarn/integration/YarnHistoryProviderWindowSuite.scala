@@ -74,7 +74,7 @@ class YarnHistoryProviderWindowSuite
       assert(!historyService.listening, s"listening $historyService")
       assert(historyService.bondedToATS, s"not bonded to ATS: $historyService")
       // post in an app start
-      val start1 = appStartEvent(start1Time, appId1, user, Some("1111"))
+      val start1 = appStartEvent(start1Time, appId1, user, Some(attemptId1.toString))
 
       enqueue(start1)
       flushHistoryServiceToSuccess(historyService)
@@ -88,7 +88,7 @@ class YarnHistoryProviderWindowSuite
       history2 = startHistoryService(sc, applicationId2,
       Some(appReport2.getCurrentApplicationAttemptId))
 
-      val start2 = appStartEvent(start2Time, appId2, user, Some("2222"))
+      val start2 = appStartEvent(start2Time, appId2, user, Some(attemptId2.toString))
       history2.enqueue(start2)
       val end2Time = start2Time + minute
       val end2 = appStopEvent(end2Time)
@@ -96,14 +96,16 @@ class YarnHistoryProviderWindowSuite
       // stop the second application
       stopHistoryService(history2)
       completed(history2)
-      history2 = null
+      addFailureAction(failureLog(s"History Service 2: $history2"))
 
       // here there is one incomplete application, and a completed one
       // which started and stopped after the incomplete one started
       provider = new TimeManagedHistoryProvider(sc.conf, end2Time, minute)
       provider.setRunningApplications(List(appReport1, appReport2))
+      addFailureAction(failureLog(s"History Service 1: $historyService"))
       addFailureAction(dumpProviderState(provider))
       addFailureAction(dumpTimelineEntities(provider))
+
 
       // now read it in via history provider
       describe("read in listing")
@@ -116,14 +118,10 @@ class YarnHistoryProviderWindowSuite
       assert(!isCompleted(applicationInfo1_1), s"$applicationInfo1_1 completed in L1 $listing1")
 
       describe("stop application 1")
-      val end3Time = provider.tick()
-      val end3 = appStopEvent(end3Time)
-      historyService.enqueue(end3)
+      historyService.enqueue(appStopEvent(provider.tick()))
       stopHistoryService(historyService)
       completed(historyService)
 
-      // move time forwards
-      provider.incrementTime(5 * minute)
 
       // query history service direct for the app, by listing entities and
       // asserting that one is valid
@@ -134,12 +132,14 @@ class YarnHistoryProviderWindowSuite
         val maybeEntity1 = entities.find(_.getEntityId == attemptId1.toString)
         assertSome(maybeEntity1, s"Did not find attempt $attemptId1 in $entityNames")
         val entity = maybeEntity1.get
-        val asAppHistory = toApplicationHistoryInfo(entity)
-        assert (asAppHistory.completed,
-          s"App never completed; history=$asAppHistory," +
+        val appHistoryApp1Attempt1 = toApplicationHistoryInfo(entity)
+        assert (appHistoryApp1Attempt1.completed,
+          s"App never completed; history=$appHistoryApp1Attempt1," +
           s"entity=${describeEntity(entity)}")
       }
 
+      // move time forwards
+      provider.incrementTime(5 * minute)
       // Now await a refresh
       describe("read in listing #2")
 

@@ -34,7 +34,7 @@ class MockBatchingTimelinePostSuite extends AbstractMockHistorySuite
     describe("mock failures, verify retry count incremented")
     // timeline client to throw an RTE on the first put
     when(timelineClient.putEntities(any(classOf[TimelineEntity])))
-        .thenThrow(new RuntimeException("triggered"))
+        .thenThrow(new RuntimeException("triggered mock RTE"))
         .thenReturn(response)
 
     val (service, eventsPosted) = postEvents(sc)

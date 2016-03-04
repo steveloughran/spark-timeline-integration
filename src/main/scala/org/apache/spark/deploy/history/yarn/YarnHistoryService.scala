@@ -388,7 +388,6 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
     // the full metrics integration happens if the spark context has a metrics system
     contextMetricsSystem.foreach(_.registerSource(metrics))
 
-
     // set up the timeline service, unless it's been disabled for testing
     if (timelineServiceEnabled) {
       startTimelineReporter()
@@ -459,7 +458,9 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
        | failed entity posts=$postFailures;
        | events dropped=$eventsDropped;
        | app start event received=$appStartEventProcessed;
+       | start time=$startTime;
        | app end event received=$appEndEventProcessed;
+       | end time=$endTime;
      """.stripMargin
 
   /**
@@ -581,8 +582,17 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
     }
   }
 
+  /**
+   * Return the metrics system of the context/environment if there is one,
+   * and metrics are enabled for this class.
+   * @return an optional metrics system
+   */
   private def contextMetricsSystem: Option[MetricsSystem] = {
-    Option(sparkContext.env.metricsSystem)
+    if (metricsEnabled) {
+      Option(sparkContext.env.metricsSystem)
+    } else {
+      None
+    }
   }
 
   /**
@@ -1387,4 +1397,18 @@ private[spark] object YarnHistoryService {
    * Enum value of stopped state.
    */
   val StoppedState = 2
+
+  @volatile var metricsEnabled = true
+
+  /**
+   * This is a flag for testing: disables metric registration and so avoids stack traces
+   * from the registration code if there is more than one service instance trying to register.
+   *
+   * @param enabled
+   */
+  private[yarn] def enableMetricRegistration(enabled: Boolean): Unit = {
+   metricsEnabled = enabled
+  }
+
+
 }

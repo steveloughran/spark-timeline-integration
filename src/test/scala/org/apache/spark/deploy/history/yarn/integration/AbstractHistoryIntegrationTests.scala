@@ -25,7 +25,7 @@ import scala.collection.mutable
 
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{CommonConfigurationKeysPublic, FileSystem, LocalFileSystemConfigKeys, Path}
+import org.apache.hadoop.fs.{CommonConfigurationKeysPublic, FileSystem, Path}
 import org.apache.hadoop.security.token.delegation.web.DelegationTokenAuthenticatedURL.Token
 import org.apache.hadoop.service.ServiceOperations
 import org.apache.hadoop.yarn.api.records.timeline.{TimelineEntity, TimelineEvent, TimelinePutResponse}
@@ -114,6 +114,7 @@ abstract class AbstractHistoryIntegrationTests
   /**
    * Set up base configuration for integration tests, including
    * classname bindings in publisher & provider, refresh intervals and a port for the UI.
+   *
    * @param sparkConf spark configuration
    * @return the expanded configuration
    */
@@ -170,6 +171,7 @@ abstract class AbstractHistoryIntegrationTests
    * Stop a history service. This includes flushing its queue,
    * blocking until that queue has been flushed and closed, then
    * stopping the YARN service.
+   *
    * @param history history service to stop
    */
   def stopHistoryService(history: YarnHistoryService): Unit = {
@@ -182,7 +184,8 @@ abstract class AbstractHistoryIntegrationTests
   }
 
   /**
-   * Add an action to execute on failures (if the test runs it
+   * Add an action to execute on failures (if the test runs).
+   *
    * @param action action to execute
    */
   def addFailureAction(action: () => Unit) : Unit = {
@@ -194,19 +197,22 @@ abstract class AbstractHistoryIntegrationTests
    */
   def executeFailureActions(): Unit = {
     if (failureActions.nonEmpty) {
-      logError("== Executing failure actions ==")
+      logError("\n===============================\n" +
+        "== Executing failure actions ==\n" +
+        "================================")
     }
-    failureActions.foreach{ action =>
+    failureActions.foreach { action =>
       try {
         action()
       } catch {
         case _ : Exception =>
       }
+      logError("\n===============================")
     }
   }
 
   /**
-   * Failure action to log history service details at INFO
+   * Failure action to log history service details at INFO.
    */
   def dumpYarnHistoryService(): Unit = {
     if (historyService != null) {
@@ -215,7 +221,8 @@ abstract class AbstractHistoryIntegrationTests
   }
 
   /**
-   * Curryable Failure action to dump provider state
+   * Curryable Failure action to dump provider state.
+   *
    * @param provider the provider
    */
   def dumpProviderState(provider: YarnHistoryProvider)(): Unit = {
@@ -231,14 +238,29 @@ abstract class AbstractHistoryIntegrationTests
   }
 
   /**
-   * Curryable Failure action to log all timeline entities
+   * Evaluate and log a string at error on any failure. This includes string interpolation
+   *
+   * @param msg message function to log
+   */
+  def failureLog(msg: => String)(): Unit = {
+    logError(msg)
+  }
+
+
+
+  /**
+   * Curryable Failure action to log all timeline entities.
+   *
    * @param provider the provider bonded to the endpoint
    */
   def dumpTimelineEntities(provider: YarnHistoryProvider)(): Unit = {
+    dumpTimelineEntities(provider.getTimelineQueryClient)()
+  }
+
+  def dumpTimelineEntities(queryClient: TimelineQueryClient)(): Unit = {
     logError("-- Dumping timeline entities --")
-    val entities = provider.getTimelineQueryClient
-        .listEntities(YarnHistoryService.SPARK_EVENT_ENTITY_TYPE)
-    entities.foreach{ e =>
+    val entities = queryClient.listEntities(YarnHistoryService.SPARK_EVENT_ENTITY_TYPE)
+    entities.foreach { e =>
       logError(describeEntity(e))
     }
   }
@@ -247,6 +269,7 @@ abstract class AbstractHistoryIntegrationTests
    * Create a SPNEGO-enabled URL Connector.
    * Picks up the hadoop configuration from `sc`, so the context
    * must be live/non-null
+   *
    * @return a URL connector for issuing HTTP requests
    */
   protected def createUrlConnector(): SpnegoUrlConnector = {
@@ -256,6 +279,7 @@ abstract class AbstractHistoryIntegrationTests
 
   /**
    * Create a SPNEGO-enabled URL Connector.
+   *
    * @param hadoopConfiguration the configuration to use
    * @return a URL connector for issuing HTTP requests
    */
@@ -265,6 +289,7 @@ abstract class AbstractHistoryIntegrationTests
 
   /**
    * Create the client and the app server
+   *
    * @param conf the hadoop configuration
    */
   protected def startTimelineClientAndAHS(conf: Configuration): Unit = {
@@ -291,7 +316,8 @@ abstract class AbstractHistoryIntegrationTests
 
   /**
    * Put a timeline entity to the timeline client; this is expected
-   * to eventually make it to the history server
+   * to eventually make it to the history server.
+   *
    * @param entity entity to put
    * @return the response
    */
@@ -301,7 +327,8 @@ abstract class AbstractHistoryIntegrationTests
   }
 
   /**
-   * Marshall and post a spark event to the timeline; return the outcome
+   * Marshall and post a spark event to the timeline; return the outcome.
+   *
    * @param sparkEvt event
    * @param time event time
    * @return a triple of the wrapped event, marshalled entity and the response
@@ -327,7 +354,8 @@ abstract class AbstractHistoryIntegrationTests
   }
 
   /**
-   * Flush a history service to success
+   * Flush a history service to success.
+   *
    * @param history service to flush
    * @param delay time to wait for an empty queue
    */
@@ -345,6 +373,7 @@ abstract class AbstractHistoryIntegrationTests
    * as the history web UI itself: querying the configuration for the
    * provider and falling back to the [[FsHistoryProvider]]. If
    * that falback does take place, however, and assertion is raised.
+   *
    * @param conf configuration
    * @return the instance
    */
@@ -365,6 +394,7 @@ abstract class AbstractHistoryIntegrationTests
    * Crete a history server and maching provider, execute the
    * probe against it. After the probe completes, the history server
    * is stopped.
+   *
    * @param probe probe to run
    */
   def webUITest(name: String, probe: (URL, YarnHistoryProvider) => Unit): Unit = {
@@ -391,6 +421,7 @@ abstract class AbstractHistoryIntegrationTests
    * Probe the empty web UI for not having any completed apps; expect
    * a text/html response with specific text and history provider configuration
    * elements.
+   *
    * @param webUI web UI
    * @param provider provider
    */
@@ -406,6 +437,7 @@ abstract class AbstractHistoryIntegrationTests
 
   /**
    * Get an HTML page. Includes a check that the content type is `text/html`
+   *
    * @param page web UI
    * @param checks list of strings to assert existing in the response
    * @return the body of the response
@@ -421,6 +453,7 @@ abstract class AbstractHistoryIntegrationTests
 
   /**
    * Get a JSON resource. Includes a check that the content type is `application/json`
+   *
    * @param page web UI
    * @return the body of the response
    */
@@ -440,6 +473,7 @@ abstract class AbstractHistoryIntegrationTests
 
   /**
    * Spin awaiting the REST app listing to contain the application
+   *
    * @param connector connector to use
    * @param url web UI
    * @param app text which must be present
@@ -463,6 +497,7 @@ abstract class AbstractHistoryIntegrationTests
 
   /**
    * Spin awaiting the listing to be a specific size; fail with useful text
+   *
    * @param connector connector to use
    * @param url URL to probe
    * @param size size of list
@@ -489,6 +524,7 @@ abstract class AbstractHistoryIntegrationTests
 
   /**
    * Await the Rest UI to satisfy some condition
+   *
    * @param connector connector to use
    * @param url web UI
    * @param condition condition to be met
@@ -518,6 +554,7 @@ abstract class AbstractHistoryIntegrationTests
   /**
    * Await a the list of entities to match a basic unfiltered listing to match the
    * desired size.
+   *
    * @param queryClient client
    * @param expected expected count
    * @return the final list, after the check succeeded
@@ -537,6 +574,7 @@ abstract class AbstractHistoryIntegrationTests
 
   /**
    * Assert that a list of checks are in the HTML body
+   *
    * @param body body of HTML (or other string)
    * @param checks list of strings to assert are present
    */
@@ -557,6 +595,7 @@ abstract class AbstractHistoryIntegrationTests
 
   /**
    * Create a [[HistoryServer]] instance with a coupled history provider.
+   *
    * @param defaultPort a port to use if the property `spark.history.ui.port` isn't
    *          set in the spark context. (default: 18080)
    * @return (port, server, web UI URL, history provider)
@@ -585,6 +624,7 @@ abstract class AbstractHistoryIntegrationTests
 
   /**
    * Create and queue a new [HandleSparkEvent] from the data
+   *
    * @param sparkEvent spark event
    */
   def enqueue(sparkEvent: SparkListenerEvent): Unit = {
@@ -631,6 +671,7 @@ abstract class AbstractHistoryIntegrationTests
 
   /**
    * Get the provider UI with an assertion failure if none came back
+   *
    * @param provider provider
    * @param appId app ID
    * @param attemptId optional attempt ID
@@ -657,6 +698,7 @@ abstract class AbstractHistoryIntegrationTests
    * 3. Use `SparkATSPlugin` as the storage plugin.
    * 4. Declares spark events as a summary type.
    * 5. resets the `FSTimelineStoreForTesting` map of appid -> state; all are unknown
+   *
    * @param conf configuration to update.
    */
   def enableATS1_5(conf: Configuration): Unit = {
@@ -710,19 +752,21 @@ abstract class AbstractHistoryIntegrationTests
   }
 
   /**
-   * mark the application of a history service as completed
+   * Mark the application of a history service as completed.
+   *
    * @param history the service
    */
   def completed(history: YarnHistoryService): Unit = {
-    completed(historyService.applicationId)
+    completed(history.applicationId)
   }
 
   /**
-   * mark the application of a history service as started
+   * Mark the application of a history service as started.
+   *
    * @param history the service
    */
   def started(history: YarnHistoryService): Unit = {
-    started(historyService.applicationId)
+    started(history.applicationId)
   }
 
 }

@@ -53,7 +53,6 @@ class TimelineListenerSuite extends AbstractHistoryIntegrationTests {
     awaitEventsProcessed(historyService, 1, TEST_STARTUP_DELAY)
     stopHistoryService(historyService)
     completed(historyService)
-    awaitEmptyQueue(historyService, TEST_STARTUP_DELAY)
     describe("reading events back")
 
     val queryClient = createTimelineQueryClient()

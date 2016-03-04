@@ -61,6 +61,8 @@ abstract class AbstractYarnHistoryTests
   * Setup creates the spark context
   */
   protected def setup(): Unit = {
+    // disable all metrics
+    YarnHistoryService.enableMetricRegistration(false)
     val sparkConf = new SparkConf()
 
     if (sc != null) {

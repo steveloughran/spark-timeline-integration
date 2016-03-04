@@ -45,11 +45,11 @@ class MockHistoryBulkPostingSuite extends AbstractMockHistorySuite {
   }
 
   test("Massive Event Posting") {
-    describe("Post many events to a failing")
+    describe("Post many events to a failing timeline client")
     // timeline client to throw an exception on every POST
 
      when(timelineClient.putEntities(any(classOf[TimelineEntity])))
-      .thenThrow(new IOException("triggered"))
+      .thenThrow(new IOException("triggered mock IOE"))
 
     val service = startHistoryService(sc)
     try {
