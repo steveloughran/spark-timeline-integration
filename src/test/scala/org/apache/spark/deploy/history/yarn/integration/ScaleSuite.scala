@@ -28,6 +28,7 @@ import org.apache.spark.deploy.history.yarn.YarnHistoryService._
 import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
 import org.apache.spark.deploy.history.yarn.rest.HttpOperationResponse
 import org.apache.spark.deploy.history.yarn.server.YarnHistoryProvider
+import org.apache.spark.deploy.history.yarn.testtools.HistoryServiceListeningToSparkContext
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
 import org.apache.spark.deploy.history.yarn.{YarnEventListener, YarnHistoryService}
 import org.apache.spark.util.Utils
@@ -35,7 +36,8 @@ import org.apache.spark.util.Utils
 /**
  * Complete integration test: lifecycle events through to web site
  */
-class ScaleSuite extends AbstractHistoryIntegrationTests {
+class ScaleSuite extends AbstractHistoryIntegrationTests
+    with HistoryServiceListeningToSparkContext {
 
   test("Get the web UI of a completed application") {
     def submitAndCheck(webUI: URL, provider: YarnHistoryProvider): Unit = {
@@ -44,14 +46,11 @@ class ScaleSuite extends AbstractHistoryIntegrationTests {
       addFailureAction(dumpTimelineEntities(provider))
 
       historyService = startHistoryService(sc)
+      assert(historyService.listening, s"listening $historyService")
+      // push in an event
       val listener = new YarnEventListener(sc, historyService)
-      val startTime = now()
-
-      val ctxAppId = sc.applicationId
-
-
-      val started = appStartEvent(startTime, ctxAppId, Utils.getCurrentUserName())
-      listener.onApplicationStart(started)
+      listener.onApplicationStart(
+        appStartEvent(now(), sc.applicationId, Utils.getCurrentUserName()))
       awaitEventsProcessed(historyService, 1, TEST_STARTUP_DELAY)
 
       // run the bulk operations
@@ -64,6 +63,7 @@ class ScaleSuite extends AbstractHistoryIntegrationTests {
 
       val totalEventCount = 2 + jobs
       // now stop the app
+      sc.stop()
       stopHistoryService(historyService)
       completed(historyService)
       val expectedAppId = historyService.applicationId.toString
@@ -77,7 +77,12 @@ class ScaleSuite extends AbstractHistoryIntegrationTests {
       assert(expectedAttemptId === entry.getEntityId,
         s"head entry id!=$expectedAttemptId: ${describeEntity(entry)} ")
 
-      queryClient.getEntity(YarnHistoryService.SPARK_EVENT_ENTITY_TYPE, expectedAttemptId)
+      eventually(longTimeout, stdInterval){
+        val entity = queryClient
+            .getEntity(YarnHistoryService.SPARK_EVENT_ENTITY_TYPE, expectedAttemptId)
+        assert(totalEventCount <= entity.getEvents.size(),
+          s"Number of events in ${describeEntity(entity)} != $totalEventCount")
+      }
 
       // at this point the REST UI is happy. Check the provider level
 

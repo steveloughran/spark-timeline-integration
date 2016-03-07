@@ -19,8 +19,7 @@ package org.apache.spark.deploy.history.yarn.integration
 
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
 import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
-import org.apache.spark.deploy.history.yarn.rest.JerseyBinding._
-import org.apache.spark.deploy.history.yarn.server.{TimelineQueryClient, YarnHistoryProvider}
+import org.apache.spark.deploy.history.yarn.server.YarnHistoryProvider
 import org.apache.spark.deploy.history.yarn.testtools.{HistoryServiceListeningToSparkContext, TimelineSingleEntryBatchSize}
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
 import org.apache.spark.util.Utils
@@ -40,16 +39,12 @@ class ContextToHistoryProviderSuite
       // hook up to spark context
       historyService = startHistoryService(sc)
       assert(historyService.listening, s"listening $historyService")
-      assertResult(1, s"batch size in $historyService") {
-        historyService.batchSize
-      }
+      assert(1 === historyService.batchSize, s"batch size in $historyService")
       assert(historyService.bondedToATS, s"not bonded to ATS: $historyService")
       // post in an app start
       var flushes = 0
       logDebug("posting app start")
-      val startTime = now()
-      val event = appStartEvent(startTime, sc.applicationId, Utils.getCurrentUserName())
-      enqueue(event)
+      enqueue(appStartEvent(now(), sc.applicationId, Utils.getCurrentUserName()))
       flushes += 1
       awaitEmptyQueue(historyService, TEST_STARTUP_DELAY)
       // closing context generates an application stop
@@ -57,9 +52,8 @@ class ContextToHistoryProviderSuite
       sc.stop()
       stopHistoryService(historyService)
       completed(historyService)
-      val timeline = historyService.timelineWebappAddress
-      val queryClient = new TimelineQueryClient(timeline,
-        historyService.yarnConfiguration, createClientConfig())
+
+      val queryClient = createTimelineQueryClient()
 
       val entities = awaitSequenceSize(1, "applications on ATS", TIMELINE_SCAN_DELAY,
         () => queryClient.listEntities(SPARK_EVENT_ENTITY_TYPE))

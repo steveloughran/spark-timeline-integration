@@ -82,6 +82,7 @@ abstract class AbstractHistoryIntegrationTests
 
   protected val stdTimeout = timeout(10 seconds)
   protected val stdInterval = interval(100 milliseconds)
+  protected val longTimeout = timeout(30 seconds)
 
   // a list of actions to fail with
   protected var failureActions: mutable.MutableList[() => Unit] = mutable.MutableList()

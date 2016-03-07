@@ -334,15 +334,17 @@ private[spark] object YarnTimelineUtils extends Logging {
   }
 
   /**
+   *
    * Create and start a timeline client, using the configuration context to
    * set up the binding.
    *
-   * @param sparkContext spark context
+   * @param hadoopConfiguration hadoop config
    * @return the started instance
+   * @return
    */
-  def createTimelineClient(sparkContext: SparkContext): TimelineClient = {
+  def createYarnTimelineClient(hadoopConfiguration: Configuration): TimelineClient = {
     val client = TimelineClient.createTimelineClient
-    client.init(sparkContext.hadoopConfiguration)
+    client.init(hadoopConfiguration)
     client.start()
     client
   }

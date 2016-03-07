@@ -206,7 +206,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
    */
   private[yarn] def createTimelineClient(): TimelineClient = {
     require(_timelineClient.isEmpty, "timeline client already set")
-    YarnTimelineUtils.createTimelineClient(sparkContext)
+    YarnTimelineUtils.createYarnTimelineClient(sparkContext.hadoopConfiguration)
   }
 
   /**

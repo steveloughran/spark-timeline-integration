@@ -178,6 +178,7 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
    * Create the timeline query client.
    *
    * This is called during instance creation; tests may override this
+   *
    * @return a timeline query client for use for the duration
    *         of this instance
    */
@@ -232,10 +233,10 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
    */
   private[yarn] val refresher = new Refresher()
 
-
   /**
    * Time in milliseconds *before* the last application report to set the window
-   * start on the next query. Keeping this earlier than the last report ensures that
+   * start on the next query.
+   * Keeping this earlier than the last report ensures that
    * changes to that application are picked up.
    */
   private val StartWindowOffsetMillis = 1000
@@ -335,6 +336,7 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
 
   /**
    * Are liveness checks enabled?
+   *
    * @return true if the liveness checks on the service endpoint take place.
    */
   def livenessChecksEnabled: Boolean = {
@@ -352,6 +354,7 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
 
   /**
    * The duration of last refresh.
+   *
    * @return a duration in millis; 0 if no refresh has taken place
    */
   def lastRefreshDuration: Long = {
@@ -360,6 +363,7 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
 
   /**
    * Get the timeline query client. Used internally to ease testing
+   *
    * @return the client.
    */
   def getTimelineQueryClient: TimelineQueryClient = {
@@ -368,6 +372,7 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
 
   /**
    * Set the last exception.
+   *
    * @param ex exception seen
    */
   private def setLastFailure(ex: Throwable): Unit = {
@@ -526,6 +531,7 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
    * List applications.
    *
    * If the timeline is not enabled, returns `emptyListing`
+   *
    * @return  the result of the last successful listing operation,
    *          or a listing with no history events if there has been a failure
    */
@@ -647,6 +653,7 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
    * List applications.
    *
    * If the timeline is not enabled, returns an empty list
+   *
    * @return List of all known applications.
    */
   override def getListing(): Seq[TimelineApplicationHistoryInfo] = {
@@ -666,6 +673,7 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
 
   /**
    * Return the current time.
+   *
    * @return the time in milliseconds.
    */
   private[yarn] def now(): Long = {
@@ -862,6 +870,7 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
   /**
    * Stub implementation of the "write event logs" operation, which isn't supported
    * by the timeline service
+   *
    * @throws SparkException always
    */
   override def writeEventLogs(appId: String,
@@ -937,6 +946,7 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
    * Filter out all incomplete applications that are not in the list of running YARN applications.
    *
    * This filters out apps which have failed without any notification event.
+   *
    * @param apps list of applications
    * @return list of apps which are marked as incomplete but no longer running
    */
@@ -952,6 +962,7 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
 
   /**
    * (Curried) update probe for attempts
+   *
    * @param version version field off entity (if found)
    * @param updated last updated field off entity (if found)
    */
@@ -1000,6 +1011,7 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
 
     /**
      * Bond to the thread then start it.
+     *
      * @param t thread
      */
     def start(t: Thread): Unit = {
@@ -1014,6 +1026,7 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
     /**
      * Request a refresh. If the request queue is empty, a refresh request
      * is queued.
+     *
      * @param time time request was made
      */
     def refresh(time: Long): Unit = {
@@ -1024,6 +1037,7 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
 
     /**
      * Stop operation.
+     *
      * @return true if the stop was scheduled
      */
     def stopRefresher(): Boolean = {
@@ -1151,6 +1165,7 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
 
     /**
      * Flag to indicate the refresher thread is running.
+     *
      * @return true if the refresher is running
      */
     def isRunning: Boolean = {
@@ -1159,6 +1174,7 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
 
     /**
      * Get the last refresh time.
+     *
      * @return the last refresh time
      */
     def lastRefreshAttemptTime: Long = {
@@ -1169,6 +1185,7 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
      * Get count of messages processed.
      *
      * This will be at least equal to the number of refreshes executed
+     *
      * @return processed count
      */
     def messagesProcessed: Long = {
@@ -1194,6 +1211,7 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
 
 /**
  * All the metrics for the YARN history provider
+ *
  * @param owner owning class
  */
 private[history] class YarnHistoryProviderMetrics(owner: YarnHistoryProvider)
@@ -1247,19 +1265,31 @@ private[history] class YarnHistoryProviderMetrics(owner: YarnHistoryProvider)
   /** Number of operations processed asynchronously. */
   val backgroundOperationsProcessed = new Counter()
 
+  /** Count of token renewals. */
+  val tokenRenewalCount = new Gauge[Long] {
+    override def getValue = owner.getTimelineQueryClient.tokenRenewalCount
+  }
+
+  /** The time the token was last renewed. */
+  val tokenRenewalTime = new Gauge[Long] {
+    override def getValue = owner.getTimelineQueryClient.lastTokenRenewal
+  }
+
   val metricsMap: Map[String, Metric] = Map(
-    "applications" -> applicationGauge,
-    "application.attempts" -> applicationAttemptGauge,
+    "applications"          -> applicationGauge,
+    "application.attempts"  -> applicationAttemptGauge,
     "app.attempt.load.count" -> attemptLoadCount,
-    "app.attempt.load.duration" -> attemptLoadDuration,
-    "app.attempt.load.failure.count" -> attemptLoadFailureCount,
-    "app.attempt.load.fetch.duration" -> attemptFetchDuration,
-    "app.attempt.load.replay.duration" -> attemptReplayDuration,
-    "background.operations.processed" -> backgroundOperationsProcessed,
-    "refresh.count" -> refreshCount,
-    "refresh.duration" -> refreshDuration,
-    "refresh.failed.count" -> refreshFailedCount,
-    "refresh.in.progress" -> refreshInProgress
+    "app.attempt.load.duration"         -> attemptLoadDuration,
+    "app.attempt.load.failure.count"    -> attemptLoadFailureCount,
+    "app.attempt.load.fetch.duration"   -> attemptFetchDuration,
+    "app.attempt.load.replay.duration"  -> attemptReplayDuration,
+    "background.operations.processed"   -> backgroundOperationsProcessed,
+    "refresh.count"         -> refreshCount,
+    "refresh.duration"      -> refreshDuration,
+    "refresh.failed.count"  -> refreshFailedCount,
+    "refresh.in.progress"   -> refreshInProgress,
+    "token.renewal.count"   -> tokenRenewalCount,
+    "token.renewal.time"    -> tokenRenewalTime
   )
 
   init()

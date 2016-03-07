@@ -71,6 +71,10 @@ private[spark] class TimelineQueryClient(
    * The last time there was a token renewal operation.
    */
   private val _lastTokenRenewal = new AtomicLong(0)
+
+  /**
+   * And how many have there been?
+   */
   private val _tokenRenewalCount = new AtomicLong(0)
 
   /**
@@ -300,6 +304,7 @@ private[spark] class TimelineQueryClient(
    * All parameters other than <code>entityType</code> have
    * default values; None for <code>optional</code>, empty
    * collections for the others.
+ *
    * @param entityType entity type
    * @param primaryFilter primary filter
    * @param secondaryFilters map of secondary filters
@@ -308,7 +313,7 @@ private[spark] class TimelineQueryClient(
    * @param windowStart time window to start retrieval
    * @param windowEnd time window to stop retrieval
    * @param fromId optional ID to start from
-   * @param fromTs optional timestamp to start from
+   * @param fromTimestamp optional timestamp to start from
    * @return a possibly empty list of entities
    */
     def listEntities(
@@ -320,7 +325,7 @@ private[spark] class TimelineQueryClient(
       windowStart: Option[Long] = None,
       windowEnd: Option[Long] = None,
       fromId: Option[String] = None,
-      fromTs: Option[Long] = None): List[TimelineEntity] = {
+      fromTimestamp: Option[Long] = None): List[TimelineEntity] = {
       require(!entityType.isEmpty, "no entity type")
       var resource = entityResource(entityType)
       // build the resource
@@ -339,7 +344,7 @@ private[spark] class TimelineQueryClient(
       resource = applyOptionalParam(resource, "windowEnd", windowEnd)
       resource = applyOptionalParam(resource, "limit", limit)
       resource = applyOptionalParam(resource, "fromId", fromId)
-      resource = applyOptionalParam(resource, "fromTs", fromTs)
+      resource = applyOptionalParam(resource, "fromTs", fromTimestamp)
       if (fields.nonEmpty) {
         resource = resource.queryParam("fields", fields.mkString(","))
       }
