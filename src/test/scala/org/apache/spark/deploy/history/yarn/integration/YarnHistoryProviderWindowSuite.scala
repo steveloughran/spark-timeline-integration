@@ -22,6 +22,7 @@ import scala.language.postfixOps
 
 import org.apache.hadoop.yarn.api.records.YarnApplicationState
 
+import org.apache.spark.deploy.history.yarn.server.TimelineApplicationHistoryInfo
 import org.apache.spark.deploy.history.yarn.{YarnTimelineUtils, YarnHistoryService}
 import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
 import org.apache.spark.deploy.history.yarn.server.YarnProviderUtils._
@@ -110,10 +111,15 @@ class YarnHistoryProviderWindowSuite
       // now read it in via history provider
       describe("read in listing")
 
-      val listing1 = awaitApplicationListingSize(provider, 2, TEST_STARTUP_DELAY)
-      logInfo(s"Listing 1: $listing1")
-      assertAppCompleted(lookupApplication(listing1, expectedAppId2),
-        s"app2 ID $expectedAppId2, in listing1 $listing1")
+      // An eventually{} clause as there's a risk that the initial provider cache refresh
+      // takes place before ATS has picked up the completed event.
+      var listing1: Seq[TimelineApplicationHistoryInfo] = null
+      eventually(stdTimeout, stdInterval) {
+        listing1 = awaitApplicationListingSize(provider, 2, TEST_STARTUP_DELAY)
+        logInfo(s"Listing 1: $listing1")
+        assertAppCompleted(lookupApplication(listing1, expectedAppId2),
+          s"app2 ID $expectedAppId2, in listing1 $listing1")
+      }
       val applicationInfo1_1 = lookupApplication(listing1, expectedAppId1)
       assert(!isCompleted(applicationInfo1_1), s"$applicationInfo1_1 completed in L1 $listing1")
 

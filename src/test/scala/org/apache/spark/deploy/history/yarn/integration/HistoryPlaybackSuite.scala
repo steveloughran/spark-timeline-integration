@@ -40,6 +40,7 @@ class HistoryPlaybackSuite extends AbstractHistoryIntegrationTests {
 
   /**
    * Create a history provider bonded to the resource entity list
+   *
    * @param conf configuration
    * @return the instance
    */
@@ -63,9 +64,7 @@ class HistoryPlaybackSuite extends AbstractHistoryIntegrationTests {
 
       val connector = createUrlConnector()
       val queryClient = historyProvider.getTimelineQueryClient
-
-      val timelineEntities =
-        queryClient.listEntities(SPARK_EVENT_ENTITY_TYPE)
+ val timelineEntities = queryClient.listEntities(SPARK_EVENT_ENTITY_TYPE)
       assert(EntityCount === timelineEntities.size,
         s"entities listed count = ${timelineEntities.size}")
       val yarnAppId = "application_1443668830514_0008"

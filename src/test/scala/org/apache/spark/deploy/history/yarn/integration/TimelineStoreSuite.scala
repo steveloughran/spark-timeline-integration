@@ -17,9 +17,9 @@
 
 package org.apache.spark.deploy.history.yarn.integration
 
-import org.apache.hadoop.yarn.api.records.ApplicationId
 import org.apache.hadoop.yarn.server.timeline.EntityGroupFSTimelineStore.AppState
 
+import org.apache.spark.deploy.history.yarn.integration.FSTimelineStoreForTesting._
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
 import org.apache.spark.scheduler.cluster.StubApplicationId
 
@@ -27,25 +27,29 @@ class TimelineStoreSuite extends AbstractHistoryIntegrationTests {
 
   test("FSTimelineStoreForTesting liveness") {
     val store = new FSTimelineStoreForTesting()
-    store.getAppState(applicationId) should be(AppState.UNKNOWN)
-    FSTimelineStoreForTesting.put(applicationId, true)
-    store.getAppState(applicationId) should be(AppState.ACTIVE)
-    FSTimelineStoreForTesting.put(applicationId, false)
-    store.getAppState(applicationId) should be(AppState.COMPLETED)
-    FSTimelineStoreForTesting.remove(applicationId)
-    store.getAppState(applicationId) should be(AppState.UNKNOWN)
+
+    def requiredState(s: AppState) = {
+      store.getAppState(applicationId) should be(s)
+    }
+
+    requiredState(AppState.UNKNOWN)
+    put(applicationId, true)
+    requiredState(AppState.ACTIVE)
+    put(applicationId, false)
+    requiredState(AppState.COMPLETED)
+    remove(applicationId)
+    requiredState(AppState.UNKNOWN)
     started(applicationId)
-    store.getAppState(applicationId) should be(AppState.ACTIVE)
+    requiredState(AppState.ACTIVE)
     completed(applicationId)
-    store.getAppState(applicationId) should be(AppState.COMPLETED)
-    FSTimelineStoreForTesting.reset()
-    store.getAppState(applicationId) should be(AppState.UNKNOWN)
+    requiredState(AppState.COMPLETED)
+    reset()
+    requiredState(AppState.UNKNOWN)
 
-    FSTimelineStoreForTesting.put(applicationId, true)
-    store.getAppState(applicationId) should be(AppState.ACTIVE)
+    put(applicationId, true)
+    requiredState(AppState.ACTIVE)
 
-    val applicationId2= new StubApplicationId(0, 1111L)
-    store.getAppState(applicationId2) should be(AppState.ACTIVE)
+    store.getAppState(new StubApplicationId(0, 1111L)) should be(AppState.ACTIVE)
 
   }
 
