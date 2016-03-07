@@ -966,7 +966,7 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
         logDebug(s"Application Attempt $appId/$attemptId not found")
         false
       case Some(a) =>
-        logDebug(s"attempt version =${a.version} in $a")
+        logDebug(s"attempt version=${a.version} in $a")
         a.version > version
     }
   }

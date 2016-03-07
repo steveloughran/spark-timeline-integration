@@ -19,6 +19,10 @@
     <MaxPermGen>512m</MaxPermGen>
     <CodeCacheSize>512m</CodeCacheSize>
 
+
+    <!-- scale parameters -->
+    <scale.test.jobs>100</scale.test.jobs>
+
     <!--library versions-->
     <codehaus.jackson.version>1.9.13</codehaus.jackson.version>
     <fasterxml.jackson.version>2.5.3</fasterxml.jackson.version>
@@ -476,6 +480,7 @@
             <spark.ui.enabled>false</spark.ui.enabled>
             <spark.ui.showConsoleProgress>false</spark.ui.showConsoleProgress>
             <spark.unsafe.exceptionOnMemoryLeak>true</spark.unsafe.exceptionOnMemoryLeak>
+            <scale.test.jobs>${scale.test.jobs}</scale.test.jobs>
           </systemProperties>
 
         </configuration>

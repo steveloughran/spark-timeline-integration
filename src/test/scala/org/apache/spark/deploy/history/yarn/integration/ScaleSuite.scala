@@ -56,7 +56,8 @@ class ScaleSuite extends AbstractHistoryIntegrationTests {
 
       // run the bulk operations
 
-      val jobs = 10
+      val jobs = Integer.getInteger("scale.test.jobs", 100)
+      logDebug(s"Running $jobs jobs")
       for (i <- 1 to jobs) {
         sc.parallelize(1 to 10).count()
       }
