@@ -46,9 +46,7 @@ class TimelineListenerSuite extends AbstractHistoryIntegrationTests {
     val listener = new YarnEventListener(sc, historyService)
     val startTime = now()
     val contextAppId = sc.applicationId
-    val started = appStartEvent(startTime,
-                               contextAppId,
-                               Utils.getCurrentUserName())
+    val started = appStartEvent(startTime, contextAppId, Utils.getCurrentUserName())
     listener.onApplicationStart(started)
     awaitEventsProcessed(historyService, 1, TEST_STARTUP_DELAY)
     stopHistoryService(historyService)
@@ -129,100 +127,5 @@ class TimelineListenerSuite extends AbstractHistoryIntegrationTests {
     queryClient.getEntity(SPARK_EVENT_ENTITY_TYPE, expectedEntityId)
 
   }
-
-  /**
-   * This test is like its predecessor except the application is queried while
-   * it has not yet completed; we are looking at how that intermediate state is
-   * described
-   */
-/*
-  test("Last-Updated time of incompleted app") {
-    describe("Last-Updated time of incompleted app")
-    // listener is still not hooked up to spark context
-    historyService = startHistoryService(sc, applicationId, Some(attemptId1))
-    val timeline = historyService.timelineWebappAddress
-    val listener = new YarnEventListener(sc, historyService)
-    val startTime = now()
-    val userName = Utils.getCurrentUserName()
-    val yarnAppId = applicationId.toString()
-    val attemptId = attemptId1.toString
-    val started = appStartEvent(startTime, appId = yarnAppId,
-      user = userName, attempt = Some(attemptId))
-    // initial checks to make sure the event is fully inited
-    assert(userName === started.sparkUser, s"started.sparkUser")
-    assert(Some(yarnAppId) === started.appId, s"started.appId")
-    assert(APP_NAME === started.appName, s"started.appName")
-    listener.onApplicationStart(started)
-    awaitEventsProcessed(historyService, 1, TEST_STARTUP_DELAY)
-    flushHistoryServiceToSuccess()
-
-    awaitEmptyQueue(historyService, TEST_STARTUP_DELAY)
-    describe("reading events back")
-    val queryClient = createTimelineQueryClient()
-
-    // list all entries
-    val entities = queryClient.listEntities(SPARK_EVENT_ENTITY_TYPE)
-    assert(1 === entities.size, "number of listed entities")
-    val timelineEntities = queryClient.listEntities(SPARK_EVENT_ENTITY_TYPE,
-        primaryFilter = appStartFilter)
-    assert(1 === timelineEntities.size, "entities listed by app start filter")
-    assertResult(0, "entities listed by app end filter") {
-      queryClient.listEntities(SPARK_EVENT_ENTITY_TYPE, primaryFilter = appEndFilter).size
-    }
-    val headEntity = timelineEntities.head
-    assertResult(attemptId, s"no entry of attemptId $attemptId in ${describeEntity(headEntity)}") {
-      headEntity.getEntityId
-    }
-
-    // first grab the initial entity and extract it manually
-    // this helps isolate any unmarshalling problems
-    val entity = queryClient.getEntity(YarnHistoryService.SPARK_EVENT_ENTITY_TYPE, attemptId)
-    val entityDetails = describeEntity(entity)
-    logInfo(s"Timeline Event = $entityDetails")
-    logInfo(s"Timeline Event = ${eventDetails(entity) }")
-    val unmarshalledEntity = toApplicationHistoryInfo(entity)
-    assert(started.appName === unmarshalledEntity.name,
-      s"unmarshalledEntity.name != started.appName in $unmarshalledEntity")
-    assert(userName === unmarshalledEntity.attempts.head.sparkUser,
-      s"unmarshalledEntity.sparkUser != username in $unmarshalledEntity")
-
-    // here the events should be in the system
-    val provider = new YarnHistoryProvider(sc.conf)
-    val history = awaitApplicationListingSize(provider, 1, TEST_STARTUP_DELAY)
-    val info = history.head
-
-    logInfo(s"App history = $info")
-    val attempt = info.attempts.head
-
-    // validate received data matches that saved
-
-    assert(startTime === started.time, s"started.time != startTime")
-    assert(started.time === attempt.startTime, s"attempt.startTime != started.time in $info")
-    assert(yarnAppId === info.id, s"info.id != yarnAppId in $info")
-    assert(Some(attemptId) === attempt.attemptId, s"Attempt ID in head attempt")
-    assert(attempt.endTime === 0, s"end time must be zero in in incompete app $info")
-    // on a completed app, lastUpdated is the end time
-    assert(attempt.lastUpdated !== 0,
-      s"attempt.lastUpdated must be non-zero in incompete app $info")
-    assert(started.appName === info.name, s"info.name != started.appName in $info")
-    assert(userName === attempt.sparkUser, s"attempt.sparkUser != username in $info")
-    // now get the event.
-
-    getAppUI(provider, info.id, attempt.attemptId)
-
-    val timelineEntity = queryClient.getEntity(SPARK_EVENT_ENTITY_TYPE, attemptId)
-    val events = timelineEntity.getEvents.asScala.toList
-    assert(1 === events.size, s"number of events in ${describeEntity(timelineEntity) }")
-    // first event must be the start one
-    val sparkListenerEvents = events.map(toSparkEvent).reverse
-    val (firstEvent :: Nil) = sparkListenerEvents
-    val fetchedStartEvent = firstEvent.asInstanceOf[SparkListenerApplicationStart]
-    assert(started.time === fetchedStartEvent.time, "start time")
-
-    // finally, a couple of checks for invalid data
-    assertNone(provider.getAppUI("unknown", attempt.attemptId), "Get UI with unknown app")
-    assertNone(provider.getAppUI(info.id, Some("unknown Attempt")), "Get UI with unknown attempt")
-  }
-*/
 
 }

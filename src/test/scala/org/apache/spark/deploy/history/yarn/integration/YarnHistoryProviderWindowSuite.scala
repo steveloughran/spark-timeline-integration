@@ -17,13 +17,10 @@
 
 package org.apache.spark.deploy.history.yarn.integration
 
-import scala.concurrent.duration._
-import scala.language.postfixOps
-
 import org.apache.hadoop.yarn.api.records.YarnApplicationState
 
 import org.apache.spark.deploy.history.yarn.server.TimelineApplicationHistoryInfo
-import org.apache.spark.deploy.history.yarn.{YarnTimelineUtils, YarnHistoryService}
+import org.apache.spark.deploy.history.yarn.YarnHistoryService
 import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
 import org.apache.spark.deploy.history.yarn.server.YarnProviderUtils._
 import org.apache.spark.deploy.history.yarn.testtools.{HistoryServiceNotListeningToSparkContext, TimelineSingleEntryBatchSize}
@@ -52,8 +49,6 @@ class YarnHistoryProviderWindowSuite
   val appId1 = appReport1.getApplicationId.toString
   val appId2 = appReport2.getApplicationId.toString
   val user = Utils.getCurrentUserName()
-  val stdTimeout = timeout(10 seconds)
-  val stdInterval = interval(100 milliseconds)
 
   override def useMiniHDFS: Boolean = true
 

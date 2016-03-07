@@ -19,12 +19,9 @@ package org.apache.spark.deploy.history.yarn.integration
 
 import java.net.URL
 
-import scala.language.postfixOps
-
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
 import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
-import org.apache.spark.deploy.history.yarn.server.TimelineQueryClient._
-import org.apache.spark.deploy.history.yarn.server.{TimelineQueryClient, YarnHistoryProvider}
+import org.apache.spark.deploy.history.yarn.server.YarnHistoryProvider
 import org.apache.spark.deploy.history.yarn.server.YarnProviderUtils._
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
 
@@ -42,6 +39,7 @@ class MultiAttemptWebSuite extends AbstractHistoryIntegrationTests {
       val queryClient = createTimelineQueryClient()
       val conf = sc.hadoopConfiguration
       stopContextAndFlushHistoryService()
+      completed(historyService)
 
       val expectedAppId = historyService.applicationId.toString
       val timelineEntities = awaitEntityListSize(queryClient, 2)

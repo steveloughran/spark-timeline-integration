@@ -23,6 +23,9 @@ import org.json4s.jackson.JsonMethods
 import org.apache.spark.deploy.history.yarn.testtools.AbstractYarnHistoryTests
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
 
+/**
+ * Verifies that the code to parse the Spark History REST API works
+ */
 class ParseRestApiSuite extends AbstractYarnHistoryTests {
   protected val PackagePath = "org/apache/spark/deploy/history/yarn/integration/"
   val IncompleteResponse = loadToJson(PackagePath + "rest-incomplete.json")

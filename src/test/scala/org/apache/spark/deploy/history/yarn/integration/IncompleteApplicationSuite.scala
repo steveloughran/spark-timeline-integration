@@ -20,7 +20,6 @@ package org.apache.spark.deploy.history.yarn.integration
 import java.net.URL
 
 import org.apache.spark.deploy.history.yarn.{YarnEventListener, YarnHistoryService}
-import org.apache.spark.deploy.history.yarn.YarnHistoryService._
 import org.apache.spark.deploy.history.yarn.server.YarnHistoryProvider
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
 import org.apache.spark.scheduler.SparkListenerApplicationEnd

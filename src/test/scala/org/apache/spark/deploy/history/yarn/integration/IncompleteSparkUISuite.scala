@@ -19,9 +19,6 @@ package org.apache.spark.deploy.history.yarn.integration
 
 import java.net.URL
 
-import scala.concurrent.duration._
-import scala.language.postfixOps
-
 import org.scalatest.concurrent.Eventually
 
 import org.apache.spark.SparkConf
@@ -108,8 +105,6 @@ class IncompleteSparkUISuite extends AbstractHistoryIntegrationTests with Eventu
       assertContains(finalAppUIPage, APP_NAME, s"Application name $APP_NAME not found" +
           s" at $attemptURL")
 
-      val stdTimeout = timeout(10 seconds)
-      val stdInterval = interval(100 milliseconds)
       eventually(stdTimeout, stdInterval) {
         // the active jobs section must no longer exist
         assertDoesNotContain(finalAppUIPage, activeJobsMarker,

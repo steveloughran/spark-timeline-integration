@@ -22,8 +22,7 @@ import scala.collection.JavaConverters._
 import org.apache.spark.SparkConf
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
 import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
-import org.apache.spark.deploy.history.yarn.rest.JerseyBinding._
-import org.apache.spark.deploy.history.yarn.server.{TimelineApplicationAttemptInfo, TimelineQueryClient, YarnHistoryProvider}
+import org.apache.spark.deploy.history.yarn.server.{TimelineApplicationAttemptInfo,YarnHistoryProvider}
 import org.apache.spark.deploy.history.yarn.testtools.{HistoryServiceNotListeningToSparkContext, TimelineSingleEntryBatchSize}
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
 
@@ -51,14 +50,24 @@ class MultipleAttemptSuite
     val sparkConf = sc.conf
 
     stopContextAndFlushHistoryService()
+    completed(historyService)
 
-    val timeline = historyService.timelineWebappAddress
-    val queryClient = new TimelineQueryClient(timeline,
-      hadoopConfiguration,
-      createClientConfig())
+    val queryClient = createTimelineQueryClient()
 
     describe("Querying history service via REST API")
 
+    eventually(stdTimeout, stdInterval) {
+      val entities = assertListSize(queryClient.listEntities(SPARK_EVENT_ENTITY_TYPE),
+        2,
+        s"number of entities of type $SPARK_EVENT_ENTITY_TYPE")
+
+      // now expect/require there to be > 1 job attempt in there
+      val timelineEntity = entities.head
+      val timelineEntityDescription = describeEntityVerbose(timelineEntity)
+      // verify that the first entity has 4 events, that is: a single lifecycle
+      assertListSize(timelineEntity.getEvents.asScala, 4,
+        s"Number of timeline events in $timelineEntityDescription")
+    }
     val entities = awaitSequenceSize(2,
       s"number of entities of type $SPARK_EVENT_ENTITY_TYPE",
       TEST_STARTUP_DELAY,

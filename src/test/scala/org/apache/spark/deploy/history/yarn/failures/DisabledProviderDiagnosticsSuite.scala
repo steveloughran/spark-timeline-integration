@@ -54,7 +54,7 @@ class DisabledProviderDiagnosticsSuite extends AbstractHistoryIntegrationTests {
     def probeDisabledUI(webUI: URL, provider: YarnHistoryProvider): Unit = {
       val fp = provider.asInstanceOf[FailingYarnHistoryProvider]
       probeEmptyWebUI(webUI, provider)
-      val body = getHtmlPage(webUI, YarnHistoryProvider.TEXT_SERVICE_DISABLED :: Nil)
+      getHtmlPage(webUI, YarnHistoryProvider.TEXT_SERVICE_DISABLED :: Nil)
     }
     webUITest("Probe Disabled UI", probeDisabledUI)
   }

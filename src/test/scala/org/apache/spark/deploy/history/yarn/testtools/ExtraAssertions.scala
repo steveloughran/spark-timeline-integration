@@ -125,7 +125,7 @@ trait ExtraAssertions extends Logging with Assertions {
    * @param message error message
    * @tparam T list type
    */
-  def assertListSize[T](list: Seq[T], expectedSize: Int, message: String): Unit = {
+  def assertListSize[T](list: Seq[T], expectedSize: Int, message: String): Seq[T] = {
     assertNotNull(list, message)
     if (list.size != expectedSize) {
       // no match
@@ -135,12 +135,14 @@ trait ExtraAssertions extends Logging with Assertions {
       list.foreach { e => logError(e.toString) }
       fail(errorText)
     }
+    list
   }
 
   /**
    * Assert that a list is Nil (and implicitly, not null)
    *
    * If not, an assertion is raised that contains the message and the list
+   *
    * @param list list to check
    * @param message message to raise
    * @tparam T list type
@@ -202,6 +204,7 @@ trait ExtraAssertions extends Logging with Assertions {
   /**
    * Assert that a source string contains the `contained` substring.
    * (This is not a check for a proper subset; equality is also acceptable)
+   *
    * @param source source string
    * @param contained string to look for
    */
@@ -215,6 +218,7 @@ trait ExtraAssertions extends Logging with Assertions {
 
   /**
    * Assert that a source string does contains the `contained` substring.
+   *
    * @param source source string
    * @param contained string to look for
    */
@@ -229,6 +233,7 @@ trait ExtraAssertions extends Logging with Assertions {
   /**
    * Assert that a `[String, String]` map contains a `key:value` mapping,
    * and that the value contains the specified text.
+   *
    * @param map map to query
    * @param key key to retrieve
    * @param text text to look for in the resolved value

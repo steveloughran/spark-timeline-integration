@@ -17,7 +17,7 @@
 
 package org.apache.spark.deploy.history.yarn.integration
 
-import java.io.{FileNotFoundException, InputStream}
+import java.io.FileNotFoundException
 import java.net.URI
 
 import scala.collection.JavaConverters._

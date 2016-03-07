@@ -22,6 +22,8 @@ import java.net.URL
 import java.util.logging.Logger
 
 import scala.collection.mutable
+import scala.concurrent.duration._
+import scala.language.postfixOps
 
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.conf.Configuration
@@ -77,6 +79,9 @@ abstract class AbstractHistoryIntegrationTests
 
   protected val no_completed_applications = "No completed applications found!"
   protected val no_incomplete_applications = "No incomplete applications found!"
+
+  protected val stdTimeout = timeout(10 seconds)
+  protected val stdInterval = interval(100 milliseconds)
 
   // a list of actions to fail with
   protected var failureActions: mutable.MutableList[() => Unit] = mutable.MutableList()
@@ -635,7 +640,12 @@ abstract class AbstractHistoryIntegrationTests
   }
 
   /**
-   * Post up multiple attempts with the second one a success
+   * Post up multiple attempts with the second one a success.
+   *
+   * This also tells the  `FSTimelineStoreForTesting` that the app is started.
+   * At the end of the run, it doesn't stop the spark context, nor the history
+   * service, or tag the app as completed...this is to give tests control of
+   * their actions here, and access to the spark context.
    */
   def postMultipleAttempts(): Unit = {
     logDebug("posting app start")
@@ -666,7 +676,6 @@ abstract class AbstractHistoryIntegrationTests
     enqueue(appStopEvent(20003))
 
     awaitEmptyQueue(historyService, TEST_STARTUP_DELAY)
-    completed(historyService)
   }
 
   /**

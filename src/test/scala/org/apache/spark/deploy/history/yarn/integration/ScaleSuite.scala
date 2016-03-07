@@ -91,8 +91,6 @@ class ScaleSuite extends AbstractHistoryIntegrationTests {
       awaitURL(webUI, TEST_STARTUP_DELAY)
 
       val connector = createUrlConnector()
-      val stdInterval = interval(100 milliseconds)
-      val stdTimeout = timeout(TEST_STARTUP_DELAY milliseconds)
       eventually(stdTimeout, stdInterval) {
         listRestAPIApplications(connector, webUI, true) should contain(expectedAppId)
       }
