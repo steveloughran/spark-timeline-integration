@@ -34,8 +34,10 @@ import org.apache.hadoop.yarn.api.records.timeline.{TimelineEntity, TimelineEven
 import org.apache.hadoop.yarn.client.api.TimelineClient
 import org.apache.hadoop.yarn.conf.YarnConfiguration._
 import org.apache.hadoop.yarn.server.applicationhistoryservice.ApplicationHistoryServer
-import org.json4s.JValue
+import org.json4s.{StringInput, JValue}
+import org.json4s.JsonAST._
 import org.json4s.jackson.JsonMethods
+import org.json4s.jackson.JsonMethods._
 import org.scalatest.concurrent.Eventually
 
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
@@ -82,12 +84,14 @@ abstract class AbstractHistoryIntegrationTests
 
   protected val stdTimeout = timeout(10 seconds)
   protected val stdInterval = interval(100 milliseconds)
-  protected val longTimeout = timeout(30 seconds)
+  protected val longTimeout = timeout(60 seconds)
+  protected val longInterval = interval(1 second)
 
   // a list of actions to fail with
   protected var failureActions: mutable.MutableList[() => Unit] = mutable.MutableList()
 
-  val REST_APPLICATIONS = "/api/v1/applications/?minDate=1970-01-01"
+  val REST_BASE = "/api/v1/applications"
+  val REST_ALL_APPLICATIONS = s"${REST_BASE}?minDate=1970-01-01"
 
   def applicationHistoryServer: ApplicationHistoryServer = {
     _applicationHistoryServer
@@ -315,9 +319,11 @@ abstract class AbstractHistoryIntegrationTests
   }
 
   protected def createTimelineQueryClient(): TimelineQueryClient = {
-    new TimelineQueryClient(historyService.timelineWebappAddress,
+    val client = new TimelineQueryClient(historyService.timelineWebappAddress,
       historyService.yarnConfiguration,
       createClientConfig())
+    client.retryLimit = 0
+    client
   }
 
   /**
@@ -372,6 +378,7 @@ abstract class AbstractHistoryIntegrationTests
     historyService.asyncFlush()
     awaitEmptyQueue(history, delay)
     assert(0 === history.postFailures, s"Post failure count: $history")
+    assert(0 === history.eventsDropped, s"Dropped events: $history")
   }
 
   /**
@@ -470,11 +477,24 @@ abstract class AbstractHistoryIntegrationTests
     JsonMethods.parse(outcome.responseBody)
   }
 
-  // get a list of app Ids of all apps in a given state. REST API
+  /**
+   * get a list of app Ids of all apps in a given state. REST API
+   *
+   * @param c connector
+   * @param webUI URL to base web UI
+   * @param completed filter by completed or not
+   * @return a list of applications
+   */
   def listRestAPIApplications(c: SpnegoUrlConnector, webUI: URL, completed: Boolean): Seq[String] = {
-    val json = getJsonResource(c, new URL(webUI, REST_APPLICATIONS))
+    val json = getJsonResource(c, new URL(webUI, REST_ALL_APPLICATIONS))
     logDebug(s"${JsonMethods.pretty(json)}")
     filterJsonListing(json, completed)
+  }
+
+  def listJobs(c: SpnegoUrlConnector, webUI: URL, attempt: String): JArray = {
+    val json = getJsonResource(c, new URL(webUI, s"${REST_BASE}/$attempt/jobs"))
+    logDebug(s"${JsonMethods.pretty(json)}")
+    json.asInstanceOf[JArray]
   }
 
   /**
@@ -493,7 +513,7 @@ abstract class AbstractHistoryIntegrationTests
       completed: Boolean,
       timeout: Long): Unit = {
     def failure(outcome: Outcome, iterations: Int, timeout: Boolean): Unit = {
-      val json = JsonMethods.pretty(getJsonResource(connector, new URL(url, REST_APPLICATIONS)))
+      val json = JsonMethods.pretty(getJsonResource(connector, new URL(url, REST_ALL_APPLICATIONS)))
       fail(s"No app $app in JSON $json")
     }
     awaitHistoryRestUISatisfiesCondition(connector, url,
@@ -518,7 +538,7 @@ abstract class AbstractHistoryIntegrationTests
       timeout: Long): Unit = {
     def failure(outcome: Outcome, iterations: Int, timeout: Boolean): Unit = {
       val jsonResource = getJsonResource(connector,
-        new URL(url, REST_APPLICATIONS))
+        new URL(url, REST_ALL_APPLICATIONS))
       val listing = filterJsonListing(jsonResource, completed)
       val prettyJson = JsonMethods.pretty(jsonResource)
       fail(s"Expected list size $size got ${listing.size} in $listing from JSON $prettyJson")
@@ -545,7 +565,7 @@ abstract class AbstractHistoryIntegrationTests
       timeout: Long): Unit = {
     def probe(): Outcome = {
       try {
-        condition(getJsonResource(connector, new URL(url, REST_APPLICATIONS)))
+        condition(getJsonResource(connector, new URL(url, REST_ALL_APPLICATIONS)))
       } catch {
         case ioe: IOException =>
           Retry()

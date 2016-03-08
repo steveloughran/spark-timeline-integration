@@ -127,6 +127,10 @@ private[spark] class SpnegoUrlConnector(
               .openConnection(url, authToken)
         } catch {
           case ex: AuthenticationException =>
+            if (ex.toString.contains("status: 404")) {
+              // Hadoop AuthenticatedURL can wrap the underlying cause
+              throw new FileNotFoundException(url.toString).initCause(ex)
+            }
             // auth failure
             throw new UnauthorizedRequestException(url.toString,
               s"Authentication failure as $callerUGI against $url: $ex", ex)
@@ -142,6 +146,7 @@ private[spark] class SpnegoUrlConnector(
 
   /**
    * Get the current delegation token.
+   *
    * @return the current delegation token
    */
   def getDelegationToken: Token = {
@@ -152,6 +157,7 @@ private[spark] class SpnegoUrlConnector(
 
   /**
    * Get the auth token.
+   *
    * @return the current auth token
    */
   def getAuthToken: AuthenticatedURL.Token = {
@@ -173,6 +179,7 @@ private[spark] class SpnegoUrlConnector(
 
   /**
    * Execute an HTTP operation
+   *
    * @param verb request method
    * @param url URL
    * @param payload payload, default is `null`
@@ -337,6 +344,7 @@ private[spark] object SpnegoUrlConnector extends Logging {
 
   /**
    * The SSL connection configurator
+   *
    * @param timeout connection timeout
    * @param factory socket factory
    */

@@ -20,12 +20,15 @@ package org.apache.spark.deploy.history.yarn.integration
 import java.io.IOException
 import java.net.URL
 
+import org.apache.hadoop.yarn.api.records.timeline.TimelineEntity
 import org.apache.hadoop.yarn.api.records.{ApplicationId, ApplicationReport, YarnApplicationState}
 import org.apache.hadoop.yarn.api.records.impl.pb.ApplicationReportPBImpl
 import org.scalatest.exceptions.TestFailedException
 
+import org.apache.spark.deploy.history.yarn.YarnHistoryService
+import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
 import org.apache.spark.deploy.history.yarn.rest.SpnegoUrlConnector
-import org.apache.spark.deploy.history.yarn.server.{TimelineApplicationHistoryInfo, TimelineApplicationAttemptInfo, YarnHistoryProvider}
+import org.apache.spark.deploy.history.yarn.server.{TimelineQueryClient, TimelineApplicationHistoryInfo, TimelineApplicationAttemptInfo, YarnHistoryProvider}
 import org.apache.spark.deploy.history.yarn.server.YarnProviderUtils._
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
 import org.apache.spark.scheduler.cluster.{StubApplicationAttemptId, StubApplicationId}
@@ -59,6 +62,7 @@ private[yarn] trait IntegrationTestUtils {
 
   /**
    * Create a stub application report
+   *
    * @param id integer app Id (essentially the RM counter)
    * @param clusterTimestamp timestamp for application Id
    * @param attempt attempt ID
@@ -89,6 +93,7 @@ private[yarn] trait IntegrationTestUtils {
 
   /**
    * Create an attempt from an application report;
+   *
    * @param report source report
    * @param endTime end time
    * @param completed completed flag
@@ -124,6 +129,7 @@ private[yarn] trait IntegrationTestUtils {
 
   /**
    * Wait for the listing size to match that desired.
+   *
    * @param provider provider
    * @param size size to require
    * @param timeout timeout
@@ -148,6 +154,7 @@ private[yarn] trait IntegrationTestUtils {
    *
    * The function retries if the application is not found in the listing or if the
    * number of attempts is not that required
+   *
    * @param provider history provider
    * @param appId application ID
    * @param attempts number of required attempts which the entry must have
@@ -182,6 +189,7 @@ private[yarn] trait IntegrationTestUtils {
 
   /**
    * Wait for the refresh count to increment by at least one iteration
+   *
    * @param provider provider
    * @param timeout timeout
    * @return the successful listing
@@ -207,6 +215,7 @@ private[yarn] trait IntegrationTestUtils {
 
   /**
    * Spin awaiting a URL to not contain some text
+   *
    * @param connector connector to use
    * @param url URL to probe
    * @param text text which must not be present
@@ -247,6 +256,7 @@ private[yarn] trait IntegrationTestUtils {
 
   /**
    * Spin awaiting a URL to contain some text
+   *
    * @param connector connector to use
    * @param url URL to probe
    * @param text text which must be present
@@ -308,4 +318,33 @@ private[yarn] trait IntegrationTestUtils {
     assert(attempt.completed, s"$text attempt not flagged as completed $attempt")
   }
 
+  /**
+   * Wait for the listing size to match that desired.
+   *
+   * @param provider provider
+   * @param size size to require
+   * @param timeout timeout
+   * @return the successful listing
+   */
+  def awaitEntityEventCount(
+      queryClient: TimelineQueryClient,
+      attemptId: String,
+      size: Long,
+      timeout: Long)
+  : TimelineEntity = {
+    var entity: TimelineEntity = null
+    def eventCount = if (entity == null) -1 else entity.getEvents.size ()
+    def listingProbe(): Outcome = {
+      entity = queryClient
+          .getEntity(YarnHistoryService.SPARK_EVENT_ENTITY_TYPE, attemptId)
+      outcomeFromBool(eventCount == size)
+    }
+    def failure(outcome: Outcome, i: Int, b: Boolean): Unit = {
+      fail(s"after $i attempts, expected entity event size $size," +
+          s" actual = ${eventCount} !=$size:\n" +
+          s"${describeEntity(entity)}")
+    }
+    spinForState(s"await listing size=$size", 100, timeout, listingProbe, failure)
+    entity
+  }
 }

@@ -590,7 +590,7 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
       list = operation()
       outcomeFromBool(list.size == expectedSize)
     }
-    def failOperation(o: Outcome, i: Int, b: Boolean) = {
+    def failOperation(o: Outcome, i: Int, b: Boolean): Unit = {
       assertListSize(list, expectedSize, message)
     }
     spinForState(message, 50, timeout, probeOperation, failOperation)

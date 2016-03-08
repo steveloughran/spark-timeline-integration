@@ -380,6 +380,12 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
     setContextAppAndAttemptInfo(Some(appId.toString), Some(attempt1))
     batchSize = sparkConf.getInt(BATCH_SIZE, batchSize)
     postQueueLimit = sparkConf.getInt(POST_EVENT_LIMIT, postQueueLimit)
+    val batchMultiplier = 2
+    if ((batchSize * batchMultiplier) > postQueueLimit) {
+      logWarning(s"Limit on number of queued events $postQueueLimit is too small compared" +
+      s"to the batch size of a single post $batchSize; uprating")
+      postQueueLimit = batchSize * batchMultiplier;
+    }
     retryInterval = 1000 * sparkConf.getTimeAsSeconds(POST_RETRY_INTERVAL,
       DEFAULT_POST_RETRY_INTERVAL)
     shutdownWaitTime = 1000 * sparkConf.getTimeAsSeconds(SHUTDOWN_WAIT_TIME,
@@ -451,10 +457,12 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
        | bonded to ATS=$bondedToATS;
        | listening=$listening;
        | batchSize=$batchSize;
+       | postQueueLimit=$postQueueLimit;
        | flush count=$getFlushCount;
        | total number queued=$eventsQueued, processed=$eventsProcessed;
        | attempted entity posts=$postAttempts
        | successful entity posts=$postSuccesses
+       | events successfully posted=${metrics.eventsSuccessfullyPosted.getCount}
        | failed entity posts=$postFailures;
        | events dropped=$eventsDropped;
        | app start event received=$appStartEventProcessed;
@@ -585,6 +593,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
   /**
    * Return the metrics system of the context/environment if there is one,
    * and metrics are enabled for this class.
+   *
    * @return an optional metrics system
    */
   private def contextMetricsSystem: Option[MetricsSystem] = {
@@ -650,7 +659,16 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
    * @return true if the event can be added to the queue
    */
   private def canAddEvent(isLifecycleEvent: Boolean): Boolean = {
-    isLifecycleEvent || metrics.eventsQueued.getCount < postQueueLimit
+    isLifecycleEvent || postQueueHasCapacity
+  }
+
+  /**
+   * Does the post queue have capacity for this event?
+   *
+   * @return true if the count of queued events is below the limit
+   */
+  private def postQueueHasCapacity: Boolean = {
+    metrics.eventsQueued.getCount < postQueueLimit
   }
 
   /**
@@ -858,6 +876,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
       if (errors.isEmpty) {
         logDebug(s"entity successfully posted")
         metrics.entityPostSuccesses.inc()
+        metrics.eventsSuccessfullyPosted.inc(entity.getEvents.size())
         // and flush the timeline
         flushTimeline();
       } else {
@@ -1084,8 +1103,11 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
         addPendingEvent(tlEvent.get)
       } else {
         // discarding the event
-        logInfo(s"Discarding event $tlEvent")
-        metrics.eventsDropped.inc()
+        // if this is due to a full queue, log it
+        if (!postQueueHasCapacity) {
+          logInfo(s"Queue full: discarding event $tlEvent")
+          metrics.eventsDropped.inc()
+        }
         0
       }
 
@@ -1176,11 +1198,14 @@ private[yarn] class HistoryMetrics extends ExtendedMetricsSource {
   /** Number of events in the post queue. */
   val postQueueEventSize = new Counter()
 
-  /** Counter of events processed -that is have been through handleEvent() */
+  /** Counter of events processed -that is have been through `handleEvent()`. */
   val eventsProcessed = new Counter()
 
   /** Counter of events queued. */
   val eventsQueued = new Counter()
+
+  /** Counter of events successfully posted. */
+  val eventsSuccessfullyPosted = new Counter()
 
   /** Counter of number of attempts to post entities. */
   val entityPostAttempts = new Counter()
@@ -1207,6 +1232,7 @@ private[yarn] class HistoryMetrics extends ExtendedMetricsSource {
     "eventsDropped" -> eventsDropped,
     "eventsProcessed" -> eventsProcessed,
     "eventsQueued" -> eventsQueued,
+    "eventsSuccessfullyPosted" -> eventsSuccessfullyPosted,
     "entityPostAttempts" -> entityPostAttempts,
     "entityPostFailures" -> entityPostFailures,
     "entityPostRejections" -> entityPostRejections,
@@ -1267,7 +1293,7 @@ private[spark] object YarnHistoryService {
   /**
    * The default size of a batch
    */
-  val DEFAULT_BATCH_SIZE = 10
+  val DEFAULT_BATCH_SIZE = 100
 
   /**
    * Name of a domain for the timeline
@@ -1283,7 +1309,7 @@ private[spark] object YarnHistoryService {
     /**
    * The default limit of events in the post queue
    */
-  val DEFAULT_POST_EVENT_LIMIT = 1000
+  val DEFAULT_POST_EVENT_LIMIT = 10000
 
   /**
    * Interval in milliseconds between POST retries. Every

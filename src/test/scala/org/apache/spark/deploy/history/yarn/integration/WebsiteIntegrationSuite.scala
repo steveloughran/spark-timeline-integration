@@ -105,9 +105,11 @@ class WebsiteIntegrationSuite extends AbstractHistoryIntegrationTests {
       GET("/environment")
       GET("/executors")
 
+      listJobs(connector, webUI, expectedAppId)
+
       // then try to resolve the app on its own and expect a failure
       intercept[FileNotFoundException] {
-        connector.execHttpOperation("GET", new URL(webUI, s"/history/$expectedAppId"))
+        connector.execHttpOperation("GET", new URL(webUI, s"/history/$expectedWebAttemptId"))
       }
     }
 
@@ -116,6 +118,7 @@ class WebsiteIntegrationSuite extends AbstractHistoryIntegrationTests {
 
   /**
    * Get the full URL to an application/application attempt
+   *
    * @param webUI base URL of the history server
    * @param appId application ID
    * @param attemptId attempt ID

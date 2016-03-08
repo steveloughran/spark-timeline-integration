@@ -54,16 +54,20 @@ private[spark] class TimelineQueryClient(
   require(timelineURI != null, "Null timelineURI")
 
   /**
-   * bool to stop `close()` executing more than once
+   * Bool to stop `close()` executing more than once.
    */
   private val closed = new AtomicBoolean(false)
   private val timelineURL = timelineURI.toURL
-  private val retryLimit = 3
-  private val retry_interval = 100
   private val APPLICATION_JSON = "application/json"
 
+  /** How many times to retry a failed operation. */
+  var retryLimit = 3
+
+  /** interval in milliseconds between retrying an operation .*/
+  var retryInterval = 100
+
   /**
-   * the delegation token (unused until delegation support implemented)
+   * The delegation token (unused until delegation support implemented).
    */
   private var token = new DelegationTokenAuthenticatedURL.Token
 
@@ -73,7 +77,7 @@ private[spark] class TimelineQueryClient(
   private val _lastTokenRenewal = new AtomicLong(0)
 
   /**
-   * And how many have there been?
+   * How many token renewals have there been?
    */
   private val _tokenRenewalCount = new AtomicLong(0)
 
@@ -116,13 +120,13 @@ private[spark] class TimelineQueryClient(
   }
 
   /**
-   * Get the timeline URI
+   * Get the timeline URI.
    * @return
    */
   def getTimelineURI() : URI = { timelineURI }
 
   /**
-   * Construct a URI under the timeline service URI
+   * Construct a URI under the timeline service URI.
    * @param path subpath
    * @return a new URI
    */
@@ -131,7 +135,7 @@ private[spark] class TimelineQueryClient(
   }
 
   /**
-   * Get a resource under the service
+   * Get a resource under the service.
    * @param path path
    * @return a new resource
    */
@@ -141,7 +145,7 @@ private[spark] class TimelineQueryClient(
 
   /**
    * Execute a GET operation against a specific URI, uprating jersey faults
-   * into more specific exceptions
+   * into more specific exceptions.
    * @param uri URI (used when handling exceptions)
    * @param action action to perform
    * @tparam T type of response
@@ -186,7 +190,7 @@ private[spark] class TimelineQueryClient(
         }
         if (retries > 0) {
           logInfo(s"Retrying -remaining attempts: $retries")
-          Thread.sleep(retry_interval)
+          Thread.sleep(retryInterval)
           exec(verb, uri, action, retries - 1)
         } else {
           throw exception
@@ -304,7 +308,6 @@ private[spark] class TimelineQueryClient(
    * All parameters other than <code>entityType</code> have
    * default values; None for <code>optional</code>, empty
    * collections for the others.
- *
    * @param entityType entity type
    * @param primaryFilter primary filter
    * @param secondaryFilters map of secondary filters
@@ -364,7 +367,7 @@ private[spark] class TimelineQueryClient(
   }
 
   /**
-   * Get an entity
+   * Get an entity.
    * @param entityType type
    * @param entityId the entity
    * @return the entity if it was found
@@ -377,7 +380,7 @@ private[spark] class TimelineQueryClient(
   }
 
   /**
-   * toString method returns the URI of the timeline service
+   * The toString method returns the URI of the timeline service.
    * @return
    */
   override def toString: String = {
@@ -385,7 +388,7 @@ private[spark] class TimelineQueryClient(
   }
 
   /**
-   * Get the time the token was last renewed
+   * The time the token was last renewed.
    * @return a system timestamp of the last renewal; 0 on startup
    */
   def lastTokenRenewal: Long = {
@@ -393,7 +396,7 @@ private[spark] class TimelineQueryClient(
   }
 
   /**
-   * Get count of token renewals
+   * The count of token renewals.
    * @return
    */
   def tokenRenewalCount: Long = {
@@ -420,7 +423,7 @@ private[spark] class AboutResponse {
 }
 
 /**
- * Constants associated with the Query API
+ * Constants associated with the Query API.
  */
 private[spark] object TimelineQueryClient {
   val MESSAGE_CHECK_URL = "Check the URL of the timeline service:"
