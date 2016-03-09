@@ -517,13 +517,19 @@ abstract class AbstractHistoryIntegrationTests
     c.execHttpOperation("GET", new URL(webUI, s"${REST_BASE}/$appId/$attemptId/logs"))
   }
 
-  def listJobs(c: SpnegoUrlConnector, webUI: URL, appId: String, attemptId: String): JArray = {
+  def listJobsAST(c: SpnegoUrlConnector, webUI: URL, appId: String, attemptId: String): JArray = {
     val json = jsonAstResource(c, new URL(webUI, s"${REST_BASE}/$appId/$attemptId/jobs"))
     logDebug(s"${JsonMethods.pretty(json)}")
     json.asInstanceOf[JArray]
   }
 
-  def listJob(c: SpnegoUrlConnector, webUI: URL, appId: String, attemptId: String, jobId: String)
+  def listJobs(c: SpnegoUrlConnector, webUI: URL, appId: String, attemptId: String): List[JobData] = {
+    jsonMapper.readValue(
+      jsonResource(c, new URL(webUI, s"${REST_BASE}/$appId/$attemptId/jobs")),
+      classOf[List[JobData]])
+  }
+
+  def listJob(c: SpnegoUrlConnector, webUI: URL, appId: String, attemptId: String, jobId: Int)
       : JobData = {
     jsonMapper.readValue(
       jsonResource(c, new URL(webUI, s"${REST_BASE}/$appId/$attemptId/jobs/$jobId")),

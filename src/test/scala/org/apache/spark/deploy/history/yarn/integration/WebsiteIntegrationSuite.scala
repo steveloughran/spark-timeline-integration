@@ -92,16 +92,6 @@ class WebsiteIntegrationSuite extends AbstractHistoryIntegrationTests
       eventually(stdTimeout, stdInterval) {
         listRestAPIApplications(connector, webUI, true) should contain(expectedAppId)
       }
-      val logsResponse = logs(connector, webUI, expectedAppId, expectedWebAttemptId)
-      assert(logsResponse.contentType === MediaType.APPLICATION_OCTET_STREAM )
-
-      val jobsList = listJobs(connector, webUI, expectedAppId, expectedWebAttemptId)
-      assertListSize(jobsList.values, jobs, "jobs of application")
-      val job0 = listJob(connector, webUI, expectedAppId, expectedWebAttemptId, "0")
-      job0.stageIds.foreach { (stageId) =>
-        val stageInfo = stage(connector, webUI, expectedAppId, expectedWebAttemptId, stageId)
-      }
-
 
       val appPath = HistoryServer.getAttemptURI(expectedAppId, Some(expectedWebAttemptId))
       // GET the app
@@ -129,6 +119,31 @@ class WebsiteIntegrationSuite extends AbstractHistoryIntegrationTests
       intercept[FileNotFoundException] {
         connector.execHttpOperation("GET", new URL(webUI, s"/history/$expectedWebAttemptId"))
       }
+
+      val logsResponse = logs(connector, webUI, expectedAppId, expectedWebAttemptId)
+      assert(logsResponse.contentType === MediaType.APPLICATION_OCTET_STREAM)
+      val jobsAST = listJobsAST(connector, webUI, expectedAppId, expectedWebAttemptId)
+      assertListSize(jobsAST.values, jobs, "jobs of application")
+
+      val job0 = listJob(connector, webUI, expectedAppId, expectedWebAttemptId, 0)
+      job0.stageIds.foreach { (stageId) =>
+        val stageInfo = stage(connector, webUI, expectedAppId, expectedWebAttemptId, stageId)
+      }
+
+      logInfo(jsonResource(connector,
+        new URL(webUI, s"${REST_BASE}/$expectedAppId/$expectedWebAttemptId/jobs")))
+/* some deser problems
+      val jobsList = listJobs(connector, webUI, expectedAppId, expectedWebAttemptId)
+      assertListSize(jobsList, jobs, "jobs of application")
+      jobsList.foreach { (jobData) =>
+        logInfo(s"$jobData")
+        val j = listJob(connector, webUI, expectedAppId, expectedWebAttemptId, jobData.jobId)
+        j.stageIds.foreach { (stageId) =>
+          val stageInfo = stage(connector, webUI, expectedAppId, expectedWebAttemptId, stageId)
+        }
+      }
+*/
+
     }
 
     webUITest("submit and check", submitAndCheck)

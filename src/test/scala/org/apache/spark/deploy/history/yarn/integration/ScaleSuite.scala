@@ -152,7 +152,12 @@ class ScaleSuite extends AbstractHistoryIntegrationTests
       GET("/storage")
       GET("/environment")
       GET("/executors")
-
+      val jobsAST = listJobsAST(connector, webUI, expectedAppId, expectedWebAttemptId)
+      assertListSize(jobsAST.values, jobs, "jobs of application")
+      val job0 = listJob(connector, webUI, expectedAppId, expectedWebAttemptId, 0)
+      job0.stageIds.foreach { (stageId) =>
+        val stageInfo = stage(connector, webUI, expectedAppId, expectedWebAttemptId, stageId)
+      }
     }
 
     webUITest("submit and check", submitAndCheck)
