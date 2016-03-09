@@ -19,7 +19,12 @@ package org.apache.spark.deploy.history.yarn.testtools
 
 import java.io.{InputStream, IOException}
 import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.TimeZone
 
+import com.fasterxml.jackson.databind.util.ISO8601DateFormat
+import com.fasterxml.jackson.databind. ObjectMapper
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId
 import org.apache.hadoop.yarn.api.records.timeline.TimelineEntity
 import org.apache.hadoop.yarn.conf.YarnConfiguration
@@ -364,6 +369,7 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
    *
    * Any value equal to or greater than expected is a success. Ideal for waiting for
    * asynchronous operations to complete
+   *
    * @param expected expected outcome
    * @param actual actual value
    */
@@ -493,6 +499,7 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
 
   /**
    * Await the number of post events
+   *
    * @param service service
    * @param posts attempt count.
    */
@@ -599,6 +606,7 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
 
   /**
    * Show a Spark context in a string form
+   *
    * @param ctx context
    * @return a string value for assertions and other messages
    */
@@ -608,6 +616,7 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
 
   /**
    * Load a resource to an input stream
+   *
    * @param resource resource to load
    * @return input stream; raises an exception if not found
    */
@@ -617,17 +626,34 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
     in
   }
 
+  private[this] lazy val _jsonMapper = {
+    val mapper = new ObjectMapper()
+    mapper.registerModule(DefaultScalaModule)
+    val dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+    mapper.setDateFormat(dateFormat);
+    mapper
+  }
+
+  /**
+   * This is a mapper for JSON ser/deser to scala types
+   *
+   * @return
+   */
+  def jsonMapper = _jsonMapper
+
   /**
    * Load and parse a resource
+   *
    * @param resource resource
    * @return parsed JSON
    */
-  def loadToJson(resource: String): JValue = {
+  def loadJsonAST(resource: String): JValue = {
     JsonMethods.parse(loadResource(resource))
   }
 
   /**
    * Filter out the listing of JSON applications
+   *
    * @param completed
    * @param json
    * @return

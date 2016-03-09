@@ -19,11 +19,12 @@ package org.apache.spark.deploy.history.yarn.integration
 
 import java.io.FileNotFoundException
 import java.net.URL
+import javax.ws.rs.core.MediaType
 
-import scala.concurrent.duration._
 import scala.language.postfixOps
 
 import org.apache.spark.deploy.history.HistoryServer
+import org.apache.spark.deploy.history.yarn.testtools.HistoryServiceListeningToSparkContext
 import org.apache.spark.deploy.history.yarn.{YarnEventListener, YarnHistoryService}
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
 import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
@@ -35,7 +36,8 @@ import org.apache.spark.util.Utils
 /**
  * Complete integration test: lifecycle events through to web site
  */
-class WebsiteIntegrationSuite extends AbstractHistoryIntegrationTests {
+class WebsiteIntegrationSuite extends AbstractHistoryIntegrationTests
+    with HistoryServiceListeningToSparkContext {
 
   test("Get the web UI of a completed application") {
     def submitAndCheck(webUI: URL, provider: YarnHistoryProvider): Unit = {
@@ -50,7 +52,13 @@ class WebsiteIntegrationSuite extends AbstractHistoryIntegrationTests {
       val ctxAppId = sc.applicationId
       val started = appStartEvent(startTime, ctxAppId, Utils.getCurrentUserName())
       listener.onApplicationStart(started)
-      awaitEventsProcessed(historyService, 1, TEST_STARTUP_DELAY)
+      val jobs = 10
+      // run the bulk operations
+      logDebug(s"Running $jobs jobs")
+      for (i <- 1 to jobs) {
+        sc.parallelize(1 to 10).count()
+      }
+
       // now stop the app
       stopHistoryService(historyService)
       completed(historyService)
@@ -59,7 +67,8 @@ class WebsiteIntegrationSuite extends AbstractHistoryIntegrationTests {
 
       // validate ATS has it
       val queryClient = createTimelineQueryClient()
-      val timelineEntities = awaitSequenceSize(1, "applications on ATS", TIMELINE_SCAN_DELAY,
+      val timelineEntities = awaitSequenceSize(
+        1, "applications on ATS", TIMELINE_SCAN_DELAY,
         () => queryClient.listEntities(SPARK_EVENT_ENTITY_TYPE))
       val entry = timelineEntities.head
       assert(expectedAttemptId === entry.getEntityId,
@@ -83,6 +92,16 @@ class WebsiteIntegrationSuite extends AbstractHistoryIntegrationTests {
       eventually(stdTimeout, stdInterval) {
         listRestAPIApplications(connector, webUI, true) should contain(expectedAppId)
       }
+      val logsResponse = logs(connector, webUI, expectedAppId, expectedWebAttemptId)
+      assert(logsResponse.contentType === MediaType.APPLICATION_OCTET_STREAM )
+
+      val jobsList = listJobs(connector, webUI, expectedAppId, expectedWebAttemptId)
+      assertListSize(jobsList.values, jobs, "jobs of application")
+      val job0 = listJob(connector, webUI, expectedAppId, expectedWebAttemptId, "0")
+      job0.stageIds.foreach { (stageId) =>
+        val stageInfo = stage(connector, webUI, expectedAppId, expectedWebAttemptId, stageId)
+      }
+
 
       val appPath = HistoryServer.getAttemptURI(expectedAppId, Some(expectedWebAttemptId))
       // GET the app
@@ -105,7 +124,6 @@ class WebsiteIntegrationSuite extends AbstractHistoryIntegrationTests {
       GET("/environment")
       GET("/executors")
 
-      listJobs(connector, webUI, expectedAppId)
 
       // then try to resolve the app on its own and expect a failure
       intercept[FileNotFoundException] {

@@ -17,7 +17,7 @@
 
 package org.apache.spark.deploy.history.yarn
 
-import java.io.InterruptedIOException
+import java.io.{Flushable, InterruptedIOException}
 import java.net.{ConnectException, URI}
 import java.util.concurrent.{LinkedBlockingDeque, TimeUnit}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicLong}
@@ -975,10 +975,14 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
 
   /**
    * Flush the timeline client; for async clients this is expected to persist
-   * the event list
+   * the event list.
+   * The ATS 1.0 release does not support this method; there's a check here to only invoke
+   * it if the client is declared flushable
    */
   private def flushTimeline(): Unit ={
-    timelineClient.flush();
+    if (timelineClient.isInstanceOf[Flushable]) {
+      timelineClient.asInstanceOf[Flushable].flush()
+    }
   }
 
   /**

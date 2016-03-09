@@ -22,15 +22,16 @@ import org.json4s.jackson.JsonMethods
 
 import org.apache.spark.deploy.history.yarn.testtools.AbstractYarnHistoryTests
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
+import org.apache.spark.status.api.v1.JobData
 
 /**
  * Verifies that the code to parse the Spark History REST API works
  */
 class ParseRestApiSuite extends AbstractYarnHistoryTests {
-  protected val PackagePath = "org/apache/spark/deploy/history/yarn/integration/"
-  val IncompleteResponse = loadToJson(PackagePath + "rest-incomplete.json")
-  val CompleteResponse = loadToJson(PackagePath + "rest-2-complete.json")
-  val MixedResponse = loadToJson(PackagePath + "rest-3-mixed.json")
+  val PackagePath = "org/apache/spark/deploy/history/yarn/integration/"
+  val IncompleteResponse = loadJsonAST(PackagePath + "rest-incomplete.json")
+  val CompleteResponse = loadJsonAST(PackagePath + "rest-2-complete.json")
+  val MixedResponse = loadJsonAST(PackagePath + "rest-3-mixed.json")
 
   def expectListingSize(response: JValue, completed: Boolean, size: Int): Unit = {
     val r = filterJsonListing(response, completed)
@@ -61,4 +62,28 @@ class ParseRestApiSuite extends AbstractYarnHistoryTests {
     expectListingSize(MixedResponse, false, 1)
   }
 
+  val JobJSON =
+    """
+      |{
+      |  "jobId" : 0,
+      |  "name" : "count at WebsiteIntegrationSuite.scala:60",
+      |  "submissionTime" : "2016-03-09T14:13:04.411GMT",
+      |  "completionTime" : "2016-03-09T14:13:04.655GMT",
+      |  "stageIds" : [ 0 ],
+      |  "status" : "SUCCEEDED",
+      |  "numTasks" : 1,
+      |  "numActiveTasks" : 0,
+      |  "numCompletedTasks" : 1,
+      |  "numSkippedTasks" : 1,
+      |  "numFailedTasks" : 0,
+      |  "numActiveStages" : 0,
+      |  "numCompletedStages" : 1,
+      |  "numSkippedStages" : 0,
+      |  "numFailedStages" : 0
+      |}
+    """.stripMargin
+
+  test("JobDeser") {
+    jsonMapper.readValue(JobJSON, classOf[JobData])
+  }
 }

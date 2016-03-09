@@ -173,14 +173,4 @@ class ScaleSuite extends AbstractHistoryIntegrationTests
     new URL(webUI, path)
   }
 
-/*
-  // use REST API to get #of jobs
-  def getNumJobsRestful(): Int = {
-    val json = HistoryServerSuite.getUrl(applications(appId, "/jobs"))
-    val jsonAst = parse(json)
-    val jobList = jsonAst.asInstanceOf[JArray]
-    jobList.values.size
-  }
-*/
-
 }

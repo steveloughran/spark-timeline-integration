@@ -19,9 +19,10 @@ package org.apache.spark.deploy.history.yarn.integration
 
 import java.io.{File, IOException}
 import java.net.URL
+import java.util.Date
 import java.util.logging.Logger
 
-import scala.collection.mutable
+import scala.collection.{Map, mutable}
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
@@ -42,12 +43,13 @@ import org.scalatest.concurrent.Eventually
 
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
 import org.apache.spark.deploy.history.yarn.server.TimelineQueryClient._
+import org.apache.spark.status.api.v1.{JobData, StageData, AccumulableInfo, StageStatus}
 import org.apache.spark.{SecurityManager, SparkConf}
 import org.apache.spark.deploy.history.{ApplicationHistoryProvider, FsHistoryProvider, HistoryServer}
 import org.apache.spark.deploy.history.yarn.{YarnHistoryService, YarnTimelineUtils}
 import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
 import org.apache.spark.deploy.history.yarn.rest.JerseyBinding._
-import org.apache.spark.deploy.history.yarn.rest.SpnegoUrlConnector
+import org.apache.spark.deploy.history.yarn.rest.{HttpOperationResponse, SpnegoUrlConnector}
 import org.apache.spark.deploy.history.yarn.server.{TimelineQueryClient, YarnHistoryProvider}
 import org.apache.spark.deploy.history.yarn.server.YarnHistoryProvider._
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
@@ -470,11 +472,21 @@ abstract class AbstractHistoryIntegrationTests
    * @param page web UI
    * @return the body of the response
    */
-  protected def getJsonResource(c: SpnegoUrlConnector, page: URL): JValue = {
+  protected def jsonAstResource(c: SpnegoUrlConnector, page: URL): JValue = {
+    JsonMethods.parse(jsonResource(c, page))
+  }
+
+  /**
+   * Get a JSON resource. Includes a check that the content type is `application/json`
+   *
+   * @param page web UI
+   * @return the body of the response
+   */
+  protected def jsonResource(c: SpnegoUrlConnector, page: URL): String = {
     val outcome = c.execHttpOperation("GET", page, null, "")
     logDebug(s"$page => $outcome")
     assert(outcome.contentType.startsWith("application/json"), s"content type of $outcome")
-    JsonMethods.parse(outcome.responseBody)
+    outcome.responseBody
   }
 
   /**
@@ -486,13 +498,98 @@ abstract class AbstractHistoryIntegrationTests
    * @return a list of applications
    */
   def listRestAPIApplications(c: SpnegoUrlConnector, webUI: URL, completed: Boolean): Seq[String] = {
-    val json = getJsonResource(c, new URL(webUI, REST_ALL_APPLICATIONS))
+    val json = jsonAstResource(c, new URL(webUI, REST_ALL_APPLICATIONS))
     logDebug(s"${JsonMethods.pretty(json)}")
     filterJsonListing(json, completed)
   }
 
-  def listJobs(c: SpnegoUrlConnector, webUI: URL, attempt: String): JArray = {
-    val json = getJsonResource(c, new URL(webUI, s"${REST_BASE}/$attempt/jobs"))
+  /**
+   * Get the logs as a .zip file.
+   *
+   * @param c connector
+   * @param webUI URL to base web UI
+   * @param appId application
+   * @param attemptId attempt
+   * @return the logs
+   */
+  def logs(c: SpnegoUrlConnector, webUI: URL, appId: String, attemptId: String)
+      : HttpOperationResponse = {
+    c.execHttpOperation("GET", new URL(webUI, s"${REST_BASE}/$appId/$attemptId/logs"))
+  }
+
+  def listJobs(c: SpnegoUrlConnector, webUI: URL, appId: String, attemptId: String): JArray = {
+    val json = jsonAstResource(c, new URL(webUI, s"${REST_BASE}/$appId/$attemptId/jobs"))
+    logDebug(s"${JsonMethods.pretty(json)}")
+    json.asInstanceOf[JArray]
+  }
+
+  def listJob(c: SpnegoUrlConnector, webUI: URL, appId: String, attemptId: String, jobId: String)
+      : JobData = {
+    jsonMapper.readValue(
+      jsonResource(c, new URL(webUI, s"${REST_BASE}/$appId/$attemptId/jobs/$jobId")),
+      classOf[JobData])
+  }
+
+  def listStages(c: SpnegoUrlConnector, webUI: URL, appId: String, attemptId: String): JArray = {
+    val json = jsonAstResource(c, new URL(webUI, s"${REST_BASE}/$appId/$attemptId/stages"))
+    logDebug(s"${JsonMethods.pretty(json)}")
+    json.asInstanceOf[JArray]
+  }
+
+  def listStageAttempts(c: SpnegoUrlConnector, webUI: URL, appId: String, attemptId: String, stage: String)
+      : JArray = {
+    val json = jsonAstResource(c, new URL(webUI, s"${REST_BASE}/$appId/$attemptId/stages/$stage"))
+    logDebug(s"${JsonMethods.pretty(json)}")
+    json.asInstanceOf[JArray]
+  }
+
+  def stage(
+      c: SpnegoUrlConnector,
+      webUI: URL,
+      appId: String,
+      attemptId: String,
+      stage: Int): List[StageData] = {
+    jsonMapper.readValue(
+      jsonResource(c,
+        new URL(webUI, s"${REST_BASE}/$appId/$attemptId/stages/$stage/")),
+      classOf[List[StageData]])
+  }
+
+  def stageAttempt(
+      c: SpnegoUrlConnector,
+      webUI: URL,
+      appId: String,
+      attemptId: String,
+      stage: String,
+      stageAttempt: String): StageData = {
+    jsonMapper.readValue(
+      jsonResource(c,
+        new URL(webUI, s"${REST_BASE}/$appId/$attemptId/stages/$stage/$stageAttempt")),
+      classOf[StageData])
+  }
+
+  def stageMetrics(
+      c: SpnegoUrlConnector,
+      webUI: URL,
+      appId: String,
+      attemptId: String,
+      stage: String,
+      stageAttempt: String): JArray = {
+    val json = jsonAstResource(c,
+      new URL(webUI, s"${REST_BASE}/$appId/$attemptId/stages/$stage/$stageAttempt/taskSummary"))
+    logDebug(s"${JsonMethods.pretty(json)}")
+    json.asInstanceOf[JArray]
+  }
+
+  def taskList(
+      c: SpnegoUrlConnector,
+      webUI: URL,
+      appId: String,
+      attemptId: String,
+      stage: String,
+      stageAttempt: String): JArray = {
+    val json = jsonAstResource(c,
+      new URL(webUI, s"${REST_BASE}/$appId/$attemptId/stages/$stage/$stageAttempt/taskList"))
     logDebug(s"${JsonMethods.pretty(json)}")
     json.asInstanceOf[JArray]
   }
@@ -513,7 +610,7 @@ abstract class AbstractHistoryIntegrationTests
       completed: Boolean,
       timeout: Long): Unit = {
     def failure(outcome: Outcome, iterations: Int, timeout: Boolean): Unit = {
-      val json = JsonMethods.pretty(getJsonResource(connector, new URL(url, REST_ALL_APPLICATIONS)))
+      val json = JsonMethods.pretty(jsonAstResource(connector, new URL(url, REST_ALL_APPLICATIONS)))
       fail(s"No app $app in JSON $json")
     }
     awaitHistoryRestUISatisfiesCondition(connector, url,
@@ -537,7 +634,7 @@ abstract class AbstractHistoryIntegrationTests
       completed: Boolean,
       timeout: Long): Unit = {
     def failure(outcome: Outcome, iterations: Int, timeout: Boolean): Unit = {
-      val jsonResource = getJsonResource(connector,
+      val jsonResource = jsonAstResource(connector,
         new URL(url, REST_ALL_APPLICATIONS))
       val listing = filterJsonListing(jsonResource, completed)
       val prettyJson = JsonMethods.pretty(jsonResource)
@@ -565,7 +662,7 @@ abstract class AbstractHistoryIntegrationTests
       timeout: Long): Unit = {
     def probe(): Outcome = {
       try {
-        condition(getJsonResource(connector, new URL(url, REST_ALL_APPLICATIONS)))
+        condition(jsonAstResource(connector, new URL(url, REST_ALL_APPLICATIONS)))
       } catch {
         case ioe: IOException =>
           Retry()
@@ -800,3 +897,62 @@ abstract class AbstractHistoryIntegrationTests
   }
 
 }
+
+/**
+ * This is the JobData of `org.apache.spark.status.api.v1.JobData`
+ * reworked to deserialize properly
+ */
+/*
+case class JobData private[spark](
+    val jobId: Int,
+    val name: String,
+    val description: Option[String],
+    val submissionTime: Option[Date],
+    val completionTime: Option[Date],
+    val stageIds: Seq[Int],
+    val jobGroup: Option[String],
+    val status: String,
+    val numTasks: Int,
+    val numActiveTasks: Int,
+    val numCompletedTasks: Int,
+    val numSkippedTasks: Int,
+    val numFailedTasks: Int,
+    val numActiveStages: Int,
+    val numCompletedStages: Int,
+    val numSkippedStages: Int,
+    val numFailedStages: Int)
+*/
+
+/*
+class StageData private[spark](
+    val status: StageStatus,
+    val stageId: Int,
+    val attemptId: Int,
+    val numActiveTasks: Int,
+    val numCompleteTasks: Int,
+    val numFailedTasks: Int,
+
+    val executorRunTime: Long,
+    val submissionTime: Option[String],
+    val firstTaskLaunchedTime: Option[String],
+    val completionTime: Option[String],
+
+    val inputBytes: Long,
+    val inputRecords: Long,
+    val outputBytes: Long,
+    val outputRecords: Long,
+    val shuffleReadBytes: Long,
+    val shuffleReadRecords: Long,
+    val shuffleWriteBytes: Long,
+    val shuffleWriteRecords: Long,
+    val memoryBytesSpilled: Long,
+    val diskBytesSpilled: Long,
+
+    val name: String,
+    val details: String,
+    val schedulingPool: String,
+
+    val accumulatorUpdates: Seq[AccumulableInfo],
+    val tasks: Option[Map[Long, TaskData]],
+    val executorSummary: Option[Map[String, ExecutorStageSummary]])
+*/
