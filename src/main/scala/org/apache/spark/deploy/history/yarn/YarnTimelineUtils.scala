@@ -425,6 +425,11 @@ private[spark] object YarnTimelineUtils extends Logging {
       YarnConfiguration.DEFAULT_TIMELINE_SERVICE_VERSION);
   }
 
+  /**
+   * Is the Version 1.5 of the timeline service enabled.
+   * @param conf
+   * @return timeline service version
+   */
   def timelineServiceV1_5Enabled(conf: Configuration): Boolean = {
     timelineServiceEnabled(conf) &&
         Math.abs(getTimelineServiceVersion(conf) - 1.5) < 0.00001;

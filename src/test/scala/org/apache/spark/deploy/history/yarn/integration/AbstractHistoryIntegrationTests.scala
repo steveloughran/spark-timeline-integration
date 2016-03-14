@@ -19,10 +19,9 @@ package org.apache.spark.deploy.history.yarn.integration
 
 import java.io.{File, IOException}
 import java.net.URL
-import java.util.Date
 import java.util.logging.Logger
 
-import scala.collection.{Map, mutable}
+import scala.collection.mutable
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
@@ -35,15 +34,15 @@ import org.apache.hadoop.yarn.api.records.timeline.{TimelineEntity, TimelineEven
 import org.apache.hadoop.yarn.client.api.TimelineClient
 import org.apache.hadoop.yarn.conf.YarnConfiguration._
 import org.apache.hadoop.yarn.server.applicationhistoryservice.ApplicationHistoryServer
-import org.json4s.{StringInput, JValue}
+import org.json4s.JValue
 import org.json4s.JsonAST._
 import org.json4s.jackson.JsonMethods
-import org.json4s.jackson.JsonMethods._
 import org.scalatest.concurrent.Eventually
 
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
 import org.apache.spark.deploy.history.yarn.server.TimelineQueryClient._
-import org.apache.spark.status.api.v1.{JobData, StageData, AccumulableInfo, StageStatus}
+import org.apache.spark.deploy.yarn.config._
+import org.apache.spark.status.api.v1.{JobData, StageData}
 import org.apache.spark.{SecurityManager, SparkConf}
 import org.apache.spark.deploy.history.{ApplicationHistoryProvider, FsHistoryProvider, HistoryServer}
 import org.apache.spark.deploy.history.yarn.{YarnHistoryService, YarnTimelineUtils}
@@ -55,7 +54,6 @@ import org.apache.spark.deploy.history.yarn.server.YarnHistoryProvider._
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
 import org.apache.spark.deploy.history.yarn.testtools.{SharedMiniFS, AbstractYarnHistoryTests, FreePortFinder, HistoryServiceNotListeningToSparkContext, TimelineServiceEnabled}
 import org.apache.spark.scheduler.SparkListenerEvent
-import org.apache.spark.scheduler.cluster.SchedulerExtensionServices
 import org.apache.spark.ui.SparkUI
 import org.apache.spark.util.Utils
 
@@ -132,7 +130,7 @@ abstract class AbstractHistoryIntegrationTests
    */
   override def setupConfiguration(sparkConf: SparkConf): SparkConf = {
     super.setupConfiguration(sparkConf)
-    sparkConf.set(SchedulerExtensionServices.SPARK_YARN_SERVICES, YarnHistoryService.CLASSNAME)
+    sparkConf.set(SCHEDULER_SERVICES, Seq(YarnHistoryService.CLASSNAME))
     sparkConf.set(SPARK_HISTORY_PROVIDER, YarnHistoryProvider.YARN_HISTORY_PROVIDER_CLASS)
     sparkConf.set(OPTION_MANUAL_REFRESH_INTERVAL, "1ms")
     sparkConf.set(OPTION_BACKGROUND_REFRESH_INTERVAL, "0s")
@@ -250,15 +248,14 @@ abstract class AbstractHistoryIntegrationTests
   }
 
   /**
-   * Evaluate and log a string at error on any failure. This includes string interpolation
+   * Evaluate and log a string at error on any failure.
+   * This includes string interpolation.
    *
    * @param msg message function to log
    */
   def failureLog(msg: => String)(): Unit = {
     logError(msg)
   }
-
-
 
   /**
    * Curryable Failure action to log all timeline entities.
@@ -308,7 +305,9 @@ abstract class AbstractHistoryIntegrationTests
     ServiceOperations.stopQuietly(_applicationHistoryServer)
     ServiceOperations.stopQuietly(_timelineClient)
     // turn on ATS 1.5
-    enableATS1_5(conf)
+    if (enableATSv15) {
+      enableATS1_5(conf)
+    }
     _timelineClient = TimelineClient.createTimelineClient()
     _timelineClient.init(conf)
     _timelineClient.start()
@@ -818,6 +817,9 @@ abstract class AbstractHistoryIntegrationTests
     loadedAppUI.get.ui
   }
 
+  /** flag to indicate whether or not ATS v1.5 should be enabled */
+  def enableATSv15: Boolean = true
+
   /** Name of the plugin; isolated from Java class in case that goes to its own JAR. */
   val PLUGIN_CLASS = "org.apache.spark.deploy.history.yarn.plugin.SparkATSPlugin"
 
@@ -842,7 +844,6 @@ abstract class AbstractHistoryIntegrationTests
     integrationDir.mkdirs()
     val leveldbDir = new File(integrationDir, "leveldb")
     leveldbDir.mkdirs()
-
 
     conf.setFloat(TIMELINE_SERVICE_VERSION, 1.5f)
     // try to turn off checksums
@@ -904,61 +905,3 @@ abstract class AbstractHistoryIntegrationTests
 
 }
 
-/**
- * This is the JobData of `org.apache.spark.status.api.v1.JobData`
- * reworked to deserialize properly
- */
-/*
-case class JobData private[spark](
-    val jobId: Int,
-    val name: String,
-    val description: Option[String],
-    val submissionTime: Option[Date],
-    val completionTime: Option[Date],
-    val stageIds: Seq[Int],
-    val jobGroup: Option[String],
-    val status: String,
-    val numTasks: Int,
-    val numActiveTasks: Int,
-    val numCompletedTasks: Int,
-    val numSkippedTasks: Int,
-    val numFailedTasks: Int,
-    val numActiveStages: Int,
-    val numCompletedStages: Int,
-    val numSkippedStages: Int,
-    val numFailedStages: Int)
-*/
-
-/*
-class StageData private[spark](
-    val status: StageStatus,
-    val stageId: Int,
-    val attemptId: Int,
-    val numActiveTasks: Int,
-    val numCompleteTasks: Int,
-    val numFailedTasks: Int,
-
-    val executorRunTime: Long,
-    val submissionTime: Option[String],
-    val firstTaskLaunchedTime: Option[String],
-    val completionTime: Option[String],
-
-    val inputBytes: Long,
-    val inputRecords: Long,
-    val outputBytes: Long,
-    val outputRecords: Long,
-    val shuffleReadBytes: Long,
-    val shuffleReadRecords: Long,
-    val shuffleWriteBytes: Long,
-    val shuffleWriteRecords: Long,
-    val memoryBytesSpilled: Long,
-    val diskBytesSpilled: Long,
-
-    val name: String,
-    val details: String,
-    val schedulingPool: String,
-
-    val accumulatorUpdates: Seq[AccumulableInfo],
-    val tasks: Option[Map[Long, TaskData]],
-    val executorSummary: Option[Map[String, ExecutorStageSummary]])
-*/

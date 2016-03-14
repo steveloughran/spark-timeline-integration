@@ -174,7 +174,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
   private var entityPostThread: Option[Thread] = None
 
   /** Flag to indicate the queue is stopped; events aren't being processed. */
-  private val queueStopped = new AtomicBoolean(true)
+  private val sparkEventQueueStopped = new AtomicBoolean(true)
 
   /** Boolean to track when the post thread is active; Set and reset in the thread itself. */
   private val postThreadActive = new AtomicBoolean(false)
@@ -248,7 +248,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
    *
    * @return the total event count
    */
-  def eventsQueued: Long = metrics.eventsQueued.getCount
+  def eventsQueued: Long = metrics.sparkEventsQueued.getCount
 
   /**
     * Get the current size of the posting queue.
@@ -428,7 +428,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
       logInfo(s"GroupID=$groupId")
     }
     // declare that the processing is started
-    queueStopped.set(false)
+    sparkEventQueueStopped.set(false)
     val thread = new Thread(new EntityPoster(), "EventPoster")
     entityPostThread = Some(thread)
     thread.setDaemon(true)
@@ -552,8 +552,8 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
    * @return true if the event was queued
    */
   def enqueue(event: SparkListenerEvent): Boolean = {
-    if (!queueStopped.get) {
-      metrics.eventsQueued.inc()
+    if (!sparkEventQueueStopped.get) {
+      metrics.sparkEventsQueued.inc()
       logDebug(s"Enqueue $event")
       handleEvent(event)
       true
@@ -609,7 +609,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
    */
   private def stopQueue(): Unit = {
     // if the queue is live
-    if (!queueStopped.get) {
+    if (!sparkEventQueueStopped.get) {
 
       if (appStartEventProcessed.get && !appEndEventProcessed.get) {
         // push out an application stop event if none has been received
@@ -668,7 +668,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
    * @return true if the count of queued events is below the limit
    */
   private def postQueueHasCapacity: Boolean = {
-    metrics.eventsQueued.getCount < postQueueLimit
+    metrics.sparkEventsQueued.getCount < postQueueLimit
   }
 
   /**
@@ -745,7 +745,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
    * @param waitTime time for shutdown to wait
    */
   private def pushQueueStop(currentTime: Long, waitTime: Long): Unit = {
-    queueStopped.set(true)
+    sparkEventQueueStopped.set(true)
     postingQueue.add(StopQueueAction(currentTime, waitTime))
   }
 
@@ -944,7 +944,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
       takeFromPostingQueue() match {
         case PostEntity(entity) =>
           val ex = postOneEntity(entity)
-          if (ex.isDefined && !queueStopped.get()) {
+          if (ex.isDefined && !sparkEventQueueStopped.get()) {
             // something went wrong
             if (!lastAttemptFailed) {
               // avoid filling up logs with repeated failures
@@ -953,7 +953,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
             // log failure and queue for posting again
             lastAttemptFailed = true
             currentRetryDelay += retryInterval
-            if (!queueStopped.get()) {
+            if (!sparkEventQueueStopped.get()) {
               // push back to the head of the queue
               postingQueue.addFirst(PostEntity(entity))
               if (currentRetryDelay > 0) {
@@ -1206,7 +1206,7 @@ private[yarn] class HistoryMetrics extends ExtendedMetricsSource {
   val eventsProcessed = new Counter()
 
   /** Counter of events queued. */
-  val eventsQueued = new Counter()
+  val sparkEventsQueued = new Counter()
 
   /** Counter of events successfully posted. */
   val eventsSuccessfullyPosted = new Counter()
@@ -1235,7 +1235,7 @@ private[yarn] class HistoryMetrics extends ExtendedMetricsSource {
   val metricsMap: Map[String, Metric] = Map(
     "eventsDropped" -> eventsDropped,
     "eventsProcessed" -> eventsProcessed,
-    "eventsQueued" -> eventsQueued,
+    "sparkEventsQueued" -> sparkEventsQueued,
     "eventsSuccessfullyPosted" -> eventsSuccessfullyPosted,
     "entityPostAttempts" -> entityPostAttempts,
     "entityPostFailures" -> entityPostFailures,

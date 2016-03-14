@@ -66,20 +66,26 @@ by setting the spark configuration property `spark.yarn.services`
 to `org.apache.spark.deploy.history.yarn.YarnHistoryService`
 
     spark.yarn.services org.apache.spark.deploy.history.yarn.YarnHistoryService
+    spark.eventLog.enabled true
 
 Notes
 
+1. If `spark.eventLog.enabled` is set to false in the spark context of an application,
+logging will be disabled. We recommend this for long-lived streaming applications, as
+they generate too much history for the timeline server to play back. Note that
+the filesystem log also has issues with very large logs, though less severely.
 1. If the class-name is mis-spelled or cannot be instantiated, an error message will
 be logged; the application will still run.
-2. YARN history publishing can run alongside the filesystem history listener; both
+1. YARN history publishing can run alongside the filesystem history listener; both
 histories can be viewed by an appropriately configured history service.
-3. If the timeline service is disabled, that is `yarn.timeline-service.enabled` is not
+1. If the timeline service is disabled, that is the YARN configuratin
+`yarn.timeline-service.enabled` is not
 `true`, then the history will not be published: the application will still run.
-4. Similarly, in a cluster where the timeline service is disabled, the history server
+1. Similarly, in a cluster where the timeline service is disabled, the history server
 will simply show an empty history, while warning that the history service is disabled.
-5. In a secure cluster, the user must have the Kerberos credentials to interact
+1. In a secure cluster, the user must have the Kerberos credentials to interact
 with the timeline server. Being logged in via `kinit` or a keytab should suffice.
-6. If the application is killed it will be listed as incompleted. In an application
+1. If the application is killed it will be listed as incompleted. In an application
 started as a `--master yarn-client` this happens if the client process is stopped
 with a `kill -9` or process failure).
 Similarly, an application started with `--master yarn-cluster` will remain incompleted

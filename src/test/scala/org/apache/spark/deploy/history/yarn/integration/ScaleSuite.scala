@@ -21,9 +21,6 @@ import java.net.URL
 
 import scala.language.postfixOps
 
-import org.json4s.JsonAST.JArray
-import org.json4s.jackson.JsonMethods._
-
 import org.apache.spark.SparkConf
 import org.apache.spark.deploy.history.HistoryServer
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
@@ -56,9 +53,16 @@ class ScaleSuite extends AbstractHistoryIntegrationTests
   val queueSize = Integer.getInteger(SCALE_TEST_QUEUE_SIZE, jobs * 20)
   val spinTimeout = (10 + jobs) * 1000
 
+  /** number of retained jobs in spark UI. */
+  val RETAINED_JOBS = 1000
+
+//  override def useMiniHDFS: Boolean = true
+
   override def setupConfiguration(sparkConf: SparkConf): SparkConf = {
-    super.setupConfiguration(sparkConf).set(YarnHistoryService.BATCH_SIZE, batchSize.toString)
-    super.setupConfiguration(sparkConf).set(YarnHistoryService.POST_EVENT_LIMIT, queueSize.toString)
+    super.setupConfiguration(sparkConf)
+        .set(YarnHistoryService.BATCH_SIZE, batchSize.toString)
+        .set(YarnHistoryService.POST_EVENT_LIMIT, queueSize.toString)
+        .set("spark.ui.retainedJobs", RETAINED_JOBS.toString)
   }
 
   test("Scale test driven by value of " + SCALE_TEST_JOBS) {
@@ -88,7 +92,7 @@ class ScaleSuite extends AbstractHistoryIntegrationTests
       completed(historyService)
       // this is a minimum, ignoring stage events and other interim events
       val totalEventCount = 2 + jobs * 2
-      val queued = historyService.metrics.eventsQueued.getCount
+      val queued = historyService.metrics.sparkEventsQueued.getCount
       assert(totalEventCount < queued)
       val posted = historyService.metrics.eventsSuccessfullyPosted.getCount
       assert(totalEventCount < posted, s"event count >= posted in $historyService")
@@ -152,10 +156,15 @@ class ScaleSuite extends AbstractHistoryIntegrationTests
       GET("/storage")
       GET("/environment")
       GET("/executors")
-      val jobsAST = listJobsAST(connector, webUI, expectedAppId, expectedWebAttemptId)
-      assertListSize(jobsAST.values, jobs, "jobs of application")
-      val job0 = listJob(connector, webUI, expectedAppId, expectedWebAttemptId, 0)
-      job0.stageIds.foreach { (stageId) =>
+      val jobsList = listJobsAST(connector, webUI, expectedAppId, expectedWebAttemptId).values
+      if (jobs < RETAINED_JOBS) {
+        assertListSize(jobsList, jobs, "jobs of application")
+      } else {
+        // A GC has taken place, remaining size is hard to predict
+        assertNotEmpty(jobsList, "jobs of application")
+      }
+      val jobN = listJob(connector, webUI, expectedAppId, expectedWebAttemptId, jobs - 1)
+      jobN.stageIds.foreach { (stageId) =>
         val stageInfo = stage(connector, webUI, expectedAppId, expectedWebAttemptId, stageId)
       }
     }

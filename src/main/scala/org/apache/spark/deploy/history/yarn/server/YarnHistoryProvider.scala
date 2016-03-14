@@ -218,6 +218,11 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
   private val _lastRefreshDuration = new AtomicLong(0)
 
   /**
+   * Is spark logging enabled
+   */
+  private val loggingEnabled = sparkConf.getBoolean("spark.eventLog.enabled", false)
+
+  /**
    * Enabled flag.
    */
   private val _enabled = timelineServiceEnabled(yarnConf)
