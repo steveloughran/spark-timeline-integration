@@ -17,7 +17,7 @@
 
 package org.apache.spark.deploy.history.yarn
 
-import java.io.{Flushable, InterruptedIOException}
+import java.io.InterruptedIOException
 import java.net.{ConnectException, URI}
 import java.util.concurrent.{LinkedBlockingDeque, TimeUnit}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicLong}
@@ -27,7 +27,7 @@ import org.apache.spark.metrics.MetricsSystem
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-import com.codahale.metrics.{Metric, Counter, MetricRegistry, Timer}
+import com.codahale.metrics.{Counter, Gauge, Metric, MetricRegistry, Timer}
 import org.apache.hadoop.security.UserGroupInformation
 import org.apache.hadoop.yarn.api.records.{ApplicationAttemptId, ApplicationId}
 import org.apache.hadoop.yarn.api.records.timeline.{TimelineDomain, TimelineEntity, TimelineEntityGroupId, TimelineEvent}
@@ -113,10 +113,10 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
   /** YARN timeline client. */
   private var _timelineClient: Option[TimelineClient] = None
 
-  /** ATS v 1.5 group ID */
+  /** ATS v 1.5 group ID. */
   private var groupId: Option[TimelineEntityGroupId] = None
 
-  /** Does the the timeline server support v 1.5 APIs */
+  /** Does the the timeline server support v 1.5 APIs? */
   private var timelineVersion1_5 = false
 
   /** Registered event listener. */
@@ -150,7 +150,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
   private val postingQueue = new LinkedBlockingDeque[PostQueueAction]()
 
   /** Number of events in the post queue. */
-  private val postQueueEventSize = new AtomicLong
+  private val _postQueueEventSize = new AtomicLong
 
   /** Limit on the total number of events permitted. */
   private var postQueueLimit = DEFAULT_POST_EVENT_LIMIT
@@ -174,7 +174,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
   private var entityPostThread: Option[Thread] = None
 
   /** Flag to indicate the queue is stopped; events aren't being processed. */
-  private val sparkEventQueueStopped = new AtomicBoolean(true)
+  private val postingQueueStopped = new AtomicBoolean(true)
 
   /** Boolean to track when the post thread is active; Set and reset in the thread itself. */
   private val postThreadActive = new AtomicBoolean(false)
@@ -192,7 +192,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
   private[yarn] var timelineWebappAddress: URI = _
 
   /** Metric fields. Used in tests as well as metrics infrastructure. */
-  val metrics = new HistoryMetrics
+  val metrics = new HistoryMetrics(this)
 
   /**
    * Create a timeline client and start it. This does not update the
@@ -220,7 +220,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
   }
 
   /**
-   * Get the configuration of this service
+   * Get the configuration of this service.
     *
     * @return the configuration as a YarnConfiguration instance
    */
@@ -251,11 +251,18 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
   def eventsQueued: Long = metrics.sparkEventsQueued.getCount
 
   /**
-    * Get the current size of the posting queue.
+    * Get the current size of the posting queue in terms of outstanding actions.
     *
     * @return the current queue length
     */
-  def postingQueueSize: Int = postingQueue.size()
+  def postQueueActionSize: Int = postingQueue.size()
+
+  /**
+   * Get the number of events in the posting queue.
+   *
+   * @return a counter of outstanding events
+   */
+  def postQueueEventSize: Long = _postQueueEventSize.get()
 
   /**
    * Query the counter of attempts to post entities to the timeline service.
@@ -428,7 +435,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
       logInfo(s"GroupID=$groupId")
     }
     // declare that the processing is started
-    sparkEventQueueStopped.set(false)
+    postingQueueStopped.set(false)
     val thread = new Thread(new EntityPoster(), "EventPoster")
     entityPostThread = Some(thread)
     thread.setDaemon(true)
@@ -458,6 +465,8 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
        | listening=$listening;
        | batchSize=$batchSize;
        | postQueueLimit=$postQueueLimit;
+       | postQueueSize=$postQueueActionSize;
+       | postQueueEventSize=$postQueueEventSize;
        | flush count=$getFlushCount;
        | total number queued=$eventsQueued, processed=$eventsProcessed;
        | attempted entity posts=$postAttempts
@@ -552,7 +561,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
    * @return true if the event was queued
    */
   def enqueue(event: SparkListenerEvent): Boolean = {
-    if (!sparkEventQueueStopped.get) {
+    if (!postingQueueStopped.get) {
       metrics.sparkEventsQueued.inc()
       logDebug(s"Enqueue $event")
       handleEvent(event)
@@ -609,7 +618,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
    */
   private def stopQueue(): Unit = {
     // if the queue is live
-    if (!sparkEventQueueStopped.get) {
+    if (!postingQueueStopped.get) {
 
       if (appStartEventProcessed.get && !appEndEventProcessed.get) {
         // push out an application stop event if none has been received
@@ -745,13 +754,13 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
    * @param waitTime time for shutdown to wait
    */
   private def pushQueueStop(currentTime: Long, waitTime: Long): Unit = {
-    sparkEventQueueStopped.set(true)
+    postingQueueStopped.set(true)
     postingQueue.add(StopQueueAction(currentTime, waitTime))
   }
 
   /**
    * Queue an entity for posting; also increases
-   * [[postQueueEventSize]] by the size of the entity.
+   * [[_postQueueEventSize]] by the size of the entity.
     *
     * @param timelineEntity entity to push
    */
@@ -759,46 +768,42 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
     // queue the entity for posting
     preflightCheck(timelineEntity)
     val e = new PostEntity(timelineEntity)
-    postQueueEventSize.addAndGet(e.size)
-    metrics.postQueueEventSize.inc(e.size)
+    _postQueueEventSize.addAndGet(e.size)
     postingQueue.add(e)
   }
 
   /**
    * Push a `PostQueueAction` to the start of the queue; also increments
-   * [[postQueueEventSize]] by the size of the action.
+   * [[_postQueueEventSize]] by the size of the action.
     *
     * @param action action to push
    */
   private def pushToFrontOfQueue(action: PostQueueAction): Unit = {
     postingQueue.push(action)
-    postQueueEventSize.addAndGet(action.size)
-    metrics.postQueueEventSize.inc(action.size)
+    _postQueueEventSize.addAndGet(action.size)
   }
 
   /**
-    * Take from the posting queue; decrements  [[postQueueEventSize]] by the size
+    * Take from the posting queue; decrements  [[_postQueueEventSize]] by the size
     * of the action.
     *
     * @return the action
     */
   private def takeFromPostingQueue(): PostQueueAction = {
     val taken = postingQueue.take()
-    postQueueEventSize.addAndGet(-taken.size)
-    metrics.postQueueEventSize.dec(taken.size)
+    _postQueueEventSize.addAndGet(-taken.size)
     taken
   }
 
   /**
-    * Poll from the posting queue; decrements  [[postQueueEventSize]] by the size
+    * Poll from the posting queue; decrements  [[_postQueueEventSize]] by the size
     * of the action.
     *
     * @return
     */
   private def pollFromPostingQueue(mills: Long): Option[PostQueueAction] = {
     val taken = postingQueue.poll(mills, TimeUnit.MILLISECONDS)
-    postQueueEventSize.addAndGet(-taken.size)
-    metrics.postQueueEventSize.dec(taken.size)
+    _postQueueEventSize.addAndGet(-taken.size)
     Option(taken)
   }
 
@@ -878,7 +883,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
         metrics.entityPostSuccesses.inc()
         metrics.eventsSuccessfullyPosted.inc(entity.getEvents.size())
         // and flush the timeline
-        flushTimeline();
+        timelineClient.flush()
       } else {
         // The ATS service rejected the request at the API level.
         // this is something we assume cannot be re-tried
@@ -905,7 +910,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
 
       case e: Exception =>
         val cause = e.getCause
-        if (cause != null && cause.isInstanceOf[InterruptedException]) {
+        if (cause.isInstanceOf[InterruptedException]) {
           // hadoop 2.7 retry logic wraps the interrupt
           throw cause
         }
@@ -943,46 +948,35 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
     while (result == null) {
       takeFromPostingQueue() match {
         case PostEntity(entity) =>
-          val ex = postOneEntity(entity)
-          if (ex.isDefined && !sparkEventQueueStopped.get()) {
-            // something went wrong
-            if (!lastAttemptFailed) {
-              // avoid filling up logs with repeated failures
-              logWarning(s"Exception submitting entity to $timelineWebappAddress", ex.get)
-            }
-            // log failure and queue for posting again
-            lastAttemptFailed = true
-            currentRetryDelay += retryInterval
-            if (!sparkEventQueueStopped.get()) {
-              // push back to the head of the queue
-              postingQueue.addFirst(PostEntity(entity))
-              if (currentRetryDelay > 0) {
-                Thread.sleep(currentRetryDelay)
+          postOneEntity(entity) match {
+            case Some(ex) =>
+              // something went wrong
+              if (!postingQueueStopped.get()) {
+                if (!lastAttemptFailed) {
+                  // avoid filling up logs with repeated failures
+                  logWarning(s"Exception submitting entity to $timelineWebappAddress", ex)
+                }
+                // log failure and queue for posting again
+                lastAttemptFailed = true
+                currentRetryDelay += retryInterval
+                // push back to the head of the queue
+                postingQueue.addFirst(PostEntity(entity))
+                if (currentRetryDelay > 0) {
+                  Thread.sleep(currentRetryDelay)
+                }
               }
-            }
-          } else {
-            // success; reset flags and retry delay
-            lastAttemptFailed = false
-            currentRetryDelay = retryInterval
+            case None =>
+              // success; reset flags and retry delay
+              lastAttemptFailed = false
+              currentRetryDelay = retryInterval
           }
+
         case stop: StopQueueAction =>
           logDebug("Queue stopped")
           result = stop
       }
     }
     result
-  }
-
-  /**
-   * Flush the timeline client; for async clients this is expected to persist
-   * the event list.
-   * The ATS 1.0 release does not support this method; there's a check here to only invoke
-   * it if the client is declared flushable
-   */
-  private def flushTimeline(): Unit ={
-    if (timelineClient.isInstanceOf[Flushable]) {
-      timelineClient.asInstanceOf[Flushable].flush()
-    }
   }
 
   /**
@@ -1000,20 +994,19 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
     while (now() < timeLimit && !postingQueue.isEmpty) {
       pollFromPostingQueue(timeLimit - now()) match {
           case Some(PostEntity(entity)) =>
-            postOneEntity(entity).foreach { e =>
-              if (!e.isInstanceOf[InterruptedException] &&
-                  !e.isInstanceOf[InterruptedIOException]) {
-                // failure, push back to try again
-                pushToFrontOfQueue(PostEntity(entity))
-                if (retryInterval > 0) {
-                  Thread.sleep(retryInterval)
-                } else {
-                  // there's no retry interval, so fail immediately
-                  throw e
-                }
-              } else {
-                // this was an interruption. Throw it again
-                throw e
+            postOneEntity(entity).foreach {
+              _ match {
+                case ex: InterruptedException => throw ex
+                case ex: InterruptedIOException => throw ex
+                case ex: Exception =>
+                  // failure, push back to try again
+                  pushToFrontOfQueue(PostEntity(entity))
+                  if (retryInterval > 0) {
+                    Thread.sleep(retryInterval)
+                  } else {
+                    // there's no retry interval, so fail immediately
+                    throw ex
+                  }
               }
             }
           case Some(StopQueueAction(_, _)) =>
@@ -1161,7 +1154,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
         // getting here means the `stop` flag is true
         postEntitiesShutdownPhase(shutdown, retryInterval)
         logInfo(s"Stopping dequeue service, final queue size is ${postingQueue.size};" +
-          s" outstanding events to post count: ${postQueueEventSize.get()}")
+          s" outstanding events to post count: ${_postQueueEventSize.get()}")
       } catch {
         // handle exceptions triggering thread exit. Interruptes are good; others less welcome.
         case ex: InterruptedException =>
@@ -1191,7 +1184,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
 /**
  * Metrics integration: the various counters of activity
  */
-private[yarn] class HistoryMetrics extends ExtendedMetricsSource {
+private[yarn] class HistoryMetrics(owner: YarnHistoryService) extends ExtendedMetricsSource {
 
   /** Name for metrics: yarn_history */
   override val sourceName = YarnHistoryService.METRICS_NAME
@@ -1200,7 +1193,16 @@ private[yarn] class HistoryMetrics extends ExtendedMetricsSource {
   override val metricRegistry = new MetricRegistry()
 
   /** Number of events in the post queue. */
-  val postQueueEventSize = new Counter()
+  val postQueueEventSize =
+    new Gauge[Long] {
+      override def getValue = owner.postQueueEventSize
+    }
+
+  /** Number of actions in the post queue. */
+  val postQueueActionsSize =
+    new Gauge[Long] {
+      override def getValue = owner.postQueueActionSize
+    }
 
   /** Counter of events processed -that is have been through `handleEvent()`. */
   val eventsProcessed = new Counter()

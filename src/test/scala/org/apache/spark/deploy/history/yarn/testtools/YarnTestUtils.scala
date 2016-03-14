@@ -20,9 +20,7 @@ package org.apache.spark.deploy.history.yarn.testtools
 import java.io.{InputStream, IOException}
 import java.net.URL
 import java.text.SimpleDateFormat
-import java.util.TimeZone
 
-import com.fasterxml.jackson.databind.util.ISO8601DateFormat
 import com.fasterxml.jackson.databind. ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId
@@ -478,7 +476,7 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
     spinForState("awaiting empty queue",
       interval = 50,
       timeout = timeout,
-      probe = () => outcomeFromBool(historyService.postingQueueSize == 0),
+      probe = () => outcomeFromBool(historyService.postQueueActionSize == 0),
       failure = (_, _, _) => fail(s"queue never cleared after $timeout mS for $historyService"))
   }
 
