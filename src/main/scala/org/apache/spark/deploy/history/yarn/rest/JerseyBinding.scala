@@ -37,7 +37,7 @@ import org.apache.spark.Logging
 import org.apache.spark.util.Utils
 
 /**
- * Jersey specific integration with the SPNEGO Auth
+ * Jersey specific integration with the SPNEGO Authentication mechanism.
  * @param conf configuration to build off
  */
 private[spark] class JerseyBinding(conf: Configuration,
@@ -71,7 +71,7 @@ private[spark] class JerseyBinding(conf: Configuration,
 private[spark] object JerseyBinding extends Logging {
 
   /**
-   * Translate exceptions, where possible. If not, it is passed through unchanged
+   * Translate exceptions, where possible. If not, it is passed through unchanged.
    * @param verb HTTP verb
    * @param targetURL URL of operation
    * @param thrown exception caught

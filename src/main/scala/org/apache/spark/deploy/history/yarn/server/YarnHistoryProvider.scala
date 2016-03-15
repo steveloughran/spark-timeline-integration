@@ -20,8 +20,8 @@ package org.apache.spark.deploy.history.yarn.server
 import java.io.{FileNotFoundException, IOException, InterruptedIOException}
 import java.net.URI
 import java.util.Date
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 import java.util.zip.ZipOutputStream
 
 import scala.collection.JavaConverters._

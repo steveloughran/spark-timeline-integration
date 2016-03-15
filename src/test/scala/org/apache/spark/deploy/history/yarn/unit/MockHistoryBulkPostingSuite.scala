@@ -44,7 +44,7 @@ class MockHistoryBulkPostingSuite extends AbstractMockHistorySuite {
     conf.set(POST_RETRY_INTERVAL, "0ms")
   }
 
-  test("Massive Event Posting") {
+  test("Massive Event Posting IOE") {
     describe("Post many events to a failing timeline client")
     // timeline client to throw an exception on every POST
 

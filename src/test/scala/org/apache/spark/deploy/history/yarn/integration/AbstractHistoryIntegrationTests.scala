@@ -52,7 +52,7 @@ import org.apache.spark.deploy.history.yarn.rest.{HttpOperationResponse, SpnegoU
 import org.apache.spark.deploy.history.yarn.server.{TimelineQueryClient, YarnHistoryProvider}
 import org.apache.spark.deploy.history.yarn.server.YarnHistoryProvider._
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
-import org.apache.spark.deploy.history.yarn.testtools.{SharedMiniFS, AbstractYarnHistoryTests, FreePortFinder, HistoryServiceNotListeningToSparkContext, TimelineServiceEnabled}
+import org.apache.spark.deploy.history.yarn.testtools.{AbstractYarnHistoryTests, FreePortFinder, HistoryServiceNotListeningToSparkContext, SharedMiniFS, TimelineServiceEnabled}
 import org.apache.spark.scheduler.SparkListenerEvent
 import org.apache.spark.ui.SparkUI
 import org.apache.spark.util.Utils

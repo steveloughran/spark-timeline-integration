@@ -28,7 +28,7 @@ import org.scalatest.exceptions.TestFailedException
 import org.apache.spark.deploy.history.yarn.YarnHistoryService
 import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
 import org.apache.spark.deploy.history.yarn.rest.SpnegoUrlConnector
-import org.apache.spark.deploy.history.yarn.server.{TimelineQueryClient, TimelineApplicationHistoryInfo, TimelineApplicationAttemptInfo, YarnHistoryProvider}
+import org.apache.spark.deploy.history.yarn.server.{TimelineApplicationHistoryInfo, TimelineApplicationAttemptInfo, TimelineQueryClient, YarnHistoryProvider}
 import org.apache.spark.deploy.history.yarn.server.YarnProviderUtils._
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
 import org.apache.spark.scheduler.cluster.{StubApplicationAttemptId, StubApplicationId}

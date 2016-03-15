@@ -46,11 +46,11 @@ private[spark] class TimelineApplicationAttemptInfo(
     val sparkAttemptId: Option[String],
     val version: Long = 0)
     extends ApplicationAttemptInfo(attemptId,
-  startTime,
-  endTime,
-  lastUpdated,
-  sparkUser,
-  completed) {
+      startTime,
+      endTime,
+      lastUpdated,
+      sparkUser,
+      completed) {
 
   /**
    * Describe the application history, including timestamps and completed flag.

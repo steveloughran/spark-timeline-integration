@@ -18,7 +18,7 @@
 package org.apache.spark.deploy.history.yarn.integration
 
 import org.apache.spark.SparkConf
-import org.apache.spark.deploy.history.yarn.server.{YarnHistoryProviderMetrics, YarnHistoryProvider}
+import org.apache.spark.deploy.history.yarn.server.{YarnHistoryProvider, YarnHistoryProviderMetrics}
 import org.apache.spark.deploy.history.yarn.server.YarnHistoryProvider._
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
 
@@ -49,6 +49,7 @@ class AsyncRefreshSuite extends AbstractHistoryIntegrationTests {
   /**
    * Create time managed history provider whose clock can be set
    * by the tests themselves
+   *
    * @param conf configuration
    * @return the instance
    */
@@ -137,6 +138,7 @@ class AsyncRefreshSuite extends AbstractHistoryIntegrationTests {
 
   /**
    * Wait for the refresh count to increment by at least one iteration
+   *
    * @param provider provider
    * @param timeout timeout
    * @return the successful listing

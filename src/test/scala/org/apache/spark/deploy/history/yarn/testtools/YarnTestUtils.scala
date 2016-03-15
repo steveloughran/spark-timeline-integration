@@ -527,8 +527,11 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
    * @param counter function to return an integer
    * @param diagnostics diagnostics string evaluated on timeout
    */
-  def awaitCount(expected: Long, timeout: Long,
-      counter: () => Long, diagnostics: => String): Unit = {
+  def awaitCount(
+      expected: Long,
+      timeout: Long,
+      counter: () => Long,
+      diagnostics: => String): Unit = {
     spinForState(s"awaiting probe count of $expected",
       50, timeout,
       () => outcomeFromCounter(expected, counter()),
@@ -544,8 +547,11 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
    * @param counter function to return an integer
    * @param diagnostics diagnostics string evaluated on timeout
    */
-  def awaitAtLeast(expected: Long, timeout: Long,
-      counter: () => Long, diagnostics: => String): Unit = {
+  def awaitAtLeast(
+      expected: Long,
+      timeout: Long,
+      counter: () => Long,
+      diagnostics: => String): Unit = {
     spinForState(s"awaiting probe count of at least $expected",
       50, timeout,
       () => outcomeAtLeast(expected, counter()),
@@ -561,7 +567,9 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
    * @param timeout timeout in milliseconds
    * @param failOnTimeout flag -fail vs warn on timeout. Default: true
    */
-  def awaitServiceThreadStopped(historyService: YarnHistoryService, timeout: Long,
+  def awaitServiceThreadStopped(
+      historyService: YarnHistoryService,
+      timeout: Long,
       failOnTimeout: Boolean = true): Unit = {
     assertNotNull(historyService, "null historyService")
     spinForState("awaitServiceThreadStopped",
@@ -587,7 +595,10 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
    * @tparam T list type
    * @return the list created in the last successful operation
    */
-  def awaitSequenceSize[T](expectedSize: Int, message: String, timeout: Long,
+  def awaitSequenceSize[T](
+      expectedSize: Int,
+      message: String,
+      timeout: Long,
       operation: () => Seq[T]): Seq[T] = {
     // last list fetched
     var list: Seq[T] = Nil

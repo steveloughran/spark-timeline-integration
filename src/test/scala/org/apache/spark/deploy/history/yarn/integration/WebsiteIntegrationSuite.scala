@@ -24,12 +24,12 @@ import javax.ws.rs.core.MediaType
 import scala.language.postfixOps
 
 import org.apache.spark.deploy.history.HistoryServer
-import org.apache.spark.deploy.history.yarn.testtools.HistoryServiceListeningToSparkContext
 import org.apache.spark.deploy.history.yarn.{YarnEventListener, YarnHistoryService}
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
 import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
 import org.apache.spark.deploy.history.yarn.rest.HttpOperationResponse
 import org.apache.spark.deploy.history.yarn.server.YarnHistoryProvider
+import org.apache.spark.deploy.history.yarn.testtools.HistoryServiceListeningToSparkContext
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
 import org.apache.spark.util.Utils
 

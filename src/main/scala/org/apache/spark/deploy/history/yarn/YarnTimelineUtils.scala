@@ -35,11 +35,11 @@ import org.apache.hadoop.yarn.api.records.timeline.{TimelineEntity, TimelineEven
 import org.apache.hadoop.yarn.client.api.TimelineClient
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.json4s.{MappingException, JValue}
-import org.json4s.JsonAST.{JArray, JBool, JDecimal, JDouble, JInt, JNull, JNothing, JObject, JString}
+import org.json4s.JsonAST.{JArray, JBool, JDecimal, JDouble, JInt, JNothing, JNull, JObject, JString}
 import org.json4s.jackson.JsonMethods._
 
 import org.apache.spark
-import org.apache.spark.{Logging, SparkContext}
+import org.apache.spark.Logging
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
 import org.apache.spark.scheduler.{SparkListenerApplicationEnd, SparkListenerApplicationStart, SparkListenerEvent, SparkListenerExecutorAdded, SparkListenerExecutorRemoved, SparkListenerJobEnd, SparkListenerJobStart, SparkListenerStageCompleted, SparkListenerStageSubmitted}
 import org.apache.spark.util.{JsonProtocol, Utils}
@@ -427,6 +427,7 @@ private[spark] object YarnTimelineUtils extends Logging {
 
   /**
    * Is the Version 1.5 of the timeline service enabled.
+   *
    * @param conf
    * @return timeline service version
    */
