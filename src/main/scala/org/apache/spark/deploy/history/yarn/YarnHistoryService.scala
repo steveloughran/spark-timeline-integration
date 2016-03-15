@@ -970,6 +970,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
               // success; reset flags and retry delay
               lastAttemptFailed = false
               currentRetryDelay = retryInterval
+              metrics.postTimestamp.touch()
           }
 
         case stop: StopQueueAction =>
