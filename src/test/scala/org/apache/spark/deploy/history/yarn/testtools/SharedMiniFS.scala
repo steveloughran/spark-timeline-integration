@@ -21,7 +21,7 @@ import java.io.File
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileUtil, FileSystem, Path}
-import org.apache.hadoop.hdfs.{DFSConfigKeys, MiniDFSCluster}
+import org.apache.hadoop.hdfs.MiniDFSCluster
 import org.apache.hadoop.hdfs.MiniDFSCluster.Builder
 
 import org.apache.spark.Logging
@@ -63,8 +63,8 @@ object SharedMiniFS extends Logging {
       FileUtil.fullyDelete(miniclusterDir)
       conf.set(MiniDFSCluster.HDFS_MINIDFS_BASEDIR, miniclusterDir.getAbsolutePath)
       // turn off metrics log noise
-      conf.setInt(DFSConfigKeys.DFS_DATANODE_METRICS_LOGGER_PERIOD_SECONDS_KEY, 0)
-      conf.setInt(DFSConfigKeys.DFS_NAMENODE_METRICS_LOGGER_PERIOD_SECONDS_KEY, 0)
+      conf.setInt("dfs.datanode.metrics.logger.period.seconds", 0)
+      conf.setInt("dfs.namenode.metrics.logger.period.seconds", 0)
       val builder = new Builder(conf)
       cluster = Some(builder.build())
       logInfo(s"Started MiniHDFS at ${cluster.get.getURI}")

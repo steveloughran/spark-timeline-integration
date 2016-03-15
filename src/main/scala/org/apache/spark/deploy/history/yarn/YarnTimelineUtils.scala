@@ -17,7 +17,6 @@
 
 package org.apache.spark.deploy.history.yarn
 
-import java.lang
 import java.io.IOException
 import java.net.{InetSocketAddress, NoRouteToHostException, URI, URL}
 import java.text.DateFormat
@@ -30,15 +29,14 @@ import scala.util.control.NonFatal
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.yarn.api.records.{ApplicationAttemptId, ApplicationId}
-import org.apache.hadoop.yarn.api.records.timeline.TimelinePutResponse.TimelinePutError
 import org.apache.hadoop.yarn.api.records.timeline.{TimelineEntity, TimelineEvent, TimelinePutResponse}
+import org.apache.hadoop.yarn.api.records.timeline.TimelinePutResponse.TimelinePutError
 import org.apache.hadoop.yarn.client.api.TimelineClient
 import org.apache.hadoop.yarn.conf.YarnConfiguration
-import org.json4s.{MappingException, JValue}
+import org.json4s.{JValue, MappingException}
 import org.json4s.JsonAST.{JArray, JBool, JDecimal, JDouble, JInt, JNothing, JNull, JObject, JString}
 import org.json4s.jackson.JsonMethods._
 
-import org.apache.spark
 import org.apache.spark.Logging
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
 import org.apache.spark.scheduler.{SparkListenerApplicationEnd, SparkListenerApplicationStart, SparkListenerEvent, SparkListenerExecutorAdded, SparkListenerExecutorRemoved, SparkListenerJobEnd, SparkListenerJobStart, SparkListenerStageCompleted, SparkListenerStageSubmitted}
@@ -271,7 +269,7 @@ private[spark] object YarnTimelineUtils extends Logging {
    * @param field field name for error message
    * @return a string to describe the field
    */
-  def timeFieldToString(time: lang.Long, field: String): String = {
+  def timeFieldToString(time: Long, field: String): String = {
     if (time != null) {
       new Date(time).toString
     } else {
@@ -721,7 +719,7 @@ private[spark] object YarnTimelineUtils extends Logging {
     entity.addOtherInfo(FIELD_ATTEMPT_ID,
       buildApplicationAttemptIdField(sparkApplicationAttemptId))
     entity.addOtherInfo(FIELD_APP_NAME, appName)
-    entity.addOtherInfo(FIELD_SPARK_VERSION, spark.SPARK_VERSION)
+    entity.addOtherInfo(FIELD_SPARK_VERSION, org.apache.spark.SPARK_VERSION)
     entity.addOtherInfo(FIELD_ENTITY_VERSION, entityVersionCounter.getAndIncrement())
     started(entity, startTime)
     if (endTime != 0) {

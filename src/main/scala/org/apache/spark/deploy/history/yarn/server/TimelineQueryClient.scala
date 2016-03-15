@@ -63,7 +63,7 @@ private[spark] class TimelineQueryClient(
   /** How many times to retry a failed operation. */
   var retryLimit = 3
 
-  /** interval in milliseconds between retrying an operation .*/
+  /** Interval in milliseconds between retrying an operation. */
   var retryInterval = 100
 
   /**
@@ -82,22 +82,22 @@ private[spark] class TimelineQueryClient(
   private val _tokenRenewalCount = new AtomicLong(0)
 
   /**
-   * Jersey binding -this exposes the method to reset the token
+   * Jersey binding -this exposes the method to reset the token.
    */
   private val jerseyBinding = new JerseyBinding(conf, token)
 
   /**
-   * Jersey Client using config from constructor
+   * Jersey Client using config from constructor.
    */
   private val jerseyClient: Client = jerseyBinding.createClient(conf, jerseyClientConfig)
 
   /**
-   * Base resource of ATS
+   * Base resource of ATS.
    */
   private val timelineResource = jerseyClient.resource(timelineURI)
 
   /**
-   * Trigger initialization
+   * Trigger initialization.
    */
   init()
 
@@ -200,7 +200,7 @@ private[spark] class TimelineQueryClient(
 
   /**
    * Reset the delegation token. Also triggers a TGT login,
-   * just for completeness
+   * just for completeness.
    */
   def resetConnection(): Unit = {
     logInfo("Resetting connection")
@@ -271,7 +271,7 @@ private[spark] class TimelineQueryClient(
     // validate the content type is JSON; if not its usually the wrong URL
     val contentType = clientResponse.getType
     if (MediaType.APPLICATION_JSON_TYPE != contentType) {
-      throw new HttpRequestException(status, "GET", endpoint ,
+      throw new HttpRequestException(status, "GET", endpoint,
         s"Wrong content type: expected application/json but got $contentType. " +
             TimelineQueryClient.MESSAGE_CHECK_URL + s": $aboutURI",
         body)
@@ -287,7 +287,7 @@ private[spark] class TimelineQueryClient(
 
   /**
    * Add a new query param if the option contains a value; the stringified value of the optional
-   * is used as the query parameter value
+   * is used as the query parameter value.
    * @param resource resource to extend
    * @param name parameter name
    * @param opt option

@@ -19,7 +19,6 @@
 package org.apache.spark.deploy.history.yarn.plugin;
 
 import org.apache.hadoop.yarn.api.records.ApplicationId;
-import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.timeline.TimelineEntityGroupId;
 import org.apache.hadoop.yarn.server.timeline.NameValuePair;
 import org.apache.hadoop.yarn.server.timeline.TimelineEntityGroupPlugin;
@@ -28,7 +27,6 @@ import org.apache.spark.deploy.history.yarn.EntityConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.UndeclaredThrowableException;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;

@@ -17,7 +17,7 @@
 
 package org.apache.spark.deploy.history.yarn.server
 
-import java.io.{FileNotFoundException, IOException, InterruptedIOException}
+import java.io.{FileNotFoundException, InterruptedIOException, IOException}
 import java.net.URI
 import java.util.Date
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
@@ -37,7 +37,7 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.spark.{Logging, SecurityManager, SparkConf, SparkException}
 import org.apache.spark.deploy.SparkHadoopUtil
 import org.apache.spark.deploy.history.{ApplicationHistoryProvider, HistoryServer, LoadedAppUI}
-import org.apache.spark.deploy.history.yarn.{TimeInMillisecondsGauge, ExtendedMetricsSource, YarnTimelineUtils}
+import org.apache.spark.deploy.history.yarn.{ExtendedMetricsSource, TimeInMillisecondsGauge, YarnTimelineUtils}
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
 import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
 import org.apache.spark.deploy.history.yarn.rest.JerseyBinding
@@ -837,7 +837,7 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
 
       // on a failure, add failure specifics to the operations
       failure foreach {
-        case (ex , date) =>
+        case (ex, date) =>
           state = state ++
             Map(
               KEY_LAST_FAILURE_TIME -> humanDateCurrentTZ(date.getTime, TEXT_NEVER_UPDATED),
@@ -1287,20 +1287,20 @@ private[history] class YarnHistoryProviderMetrics(owner: YarnHistoryProvider)
   }
 
   val metricsMap: Map[String, Metric] = Map(
-    "applications"          -> applicationGauge,
-    "application.attempts"  -> applicationAttemptGauge,
+    "applications" -> applicationGauge,
+    "application.attempts" -> applicationAttemptGauge,
     "app.attempt.load.count" -> attemptLoadCount,
-    "app.attempt.load.duration"         -> attemptLoadDuration,
-    "app.attempt.load.failure.count"    -> attemptLoadFailureCount,
-    "app.attempt.load.fetch.duration"   -> attemptFetchDuration,
-    "app.attempt.load.replay.duration"  -> attemptReplayDuration,
-    "background.operations.processed"   -> backgroundOperationsProcessed,
-    "refresh.count"         -> refreshCount,
-    "refresh.duration"      -> refreshDuration,
-    "refresh.failed.count"  -> refreshFailedCount,
-    "refresh.in.progress"   -> refreshInProgress,
-    "token.renewal.count"   -> tokenRenewalCount,
-    "token.renewal.time"    -> tokenRenewalTime
+    "app.attempt.load.duration" -> attemptLoadDuration,
+    "app.attempt.load.failure.count" -> attemptLoadFailureCount,
+    "app.attempt.load.fetch.duration" -> attemptFetchDuration,
+    "app.attempt.load.replay.duration" -> attemptReplayDuration,
+    "background.operations.processed" -> backgroundOperationsProcessed,
+    "refresh.count" -> refreshCount,
+    "refresh.duration" -> refreshDuration,
+    "refresh.failed.count" -> refreshFailedCount,
+    "refresh.in.progress" -> refreshInProgress,
+    "token.renewal.count" -> tokenRenewalCount,
+    "token.renewal.time" -> tokenRenewalTime
   )
 
   init()

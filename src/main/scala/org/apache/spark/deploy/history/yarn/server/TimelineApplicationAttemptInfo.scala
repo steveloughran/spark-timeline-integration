@@ -17,7 +17,7 @@
 
 package org.apache.spark.deploy.history.yarn.server
 
-import org.apache.spark.deploy.history.{ApplicationHistoryInfo, ApplicationAttemptInfo}
+import org.apache.spark.deploy.history.{ApplicationAttemptInfo, ApplicationHistoryInfo}
 import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
 
 /**

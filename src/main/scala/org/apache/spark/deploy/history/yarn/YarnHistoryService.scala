@@ -22,8 +22,6 @@ import java.net.{ConnectException, URI}
 import java.util.concurrent.{LinkedBlockingDeque, TimeUnit}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicLong}
 
-import org.apache.spark.metrics.MetricsSystem
-
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
@@ -36,6 +34,7 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration
 
 import org.apache.spark.{Logging, SparkContext}
 import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
+import org.apache.spark.metrics.MetricsSystem
 import org.apache.spark.scheduler.{SparkListenerApplicationEnd, SparkListenerApplicationStart, SparkListenerBlockUpdated, SparkListenerEvent, SparkListenerExecutorMetricsUpdate}
 import org.apache.spark.scheduler.cluster.{SchedulerExtensionService, SchedulerExtensionServiceBinding}
 import org.apache.spark.util.{SystemClock, Utils}
@@ -436,7 +435,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
     timelineVersion1_5 = timelineServiceV1_5Enabled(config)
     domainId = createTimelineDomain()
     logInfo(s"Spark events will be published to $timelineWebappAddress"
-      +s" API version=$version; domain ID = $domainId; client=${_timelineClient.toString}")
+      + s" API version=$version; domain ID = $domainId; client=${_timelineClient.toString}")
     if (timelineVersion1_5) {
       groupId = Some(TimelineEntityGroupId.newInstance(applicationId, SPARK_EVENT_GROUP_TYPE))
       logInfo(s"GroupID=$groupId")
