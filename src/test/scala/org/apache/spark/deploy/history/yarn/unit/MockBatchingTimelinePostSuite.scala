@@ -34,8 +34,8 @@ class MockBatchingTimelinePostSuite extends AbstractMockHistorySuite
     describe("mock failures, verify retry count incremented")
     // timeline client to throw an RTE on the first put
     when(timelineClient.putEntities(any(classOf[TimelineEntity])))
-        .thenThrow(new RuntimeException("triggered mock RTE"))
-        .thenReturn(response)
+      .thenThrow(new RuntimeException("triggered mock RTE"))
+      .thenReturn(response)
 
     val (service, eventsPosted) = postEvents(sc)
     // now await some retries asynchronously
@@ -47,6 +47,6 @@ class MockBatchingTimelinePostSuite extends AbstractMockHistorySuite
     // there should have been three flushed
     assert(eventsPosted === service.getFlushCount, s"expected $eventsPosted flushed for $service" )
     verify(timelineClient, times(service.postAttempts.toInt))
-        .putEntities(any(classOf[TimelineEntity]))
+      .putEntities(any(classOf[TimelineEntity]))
   }
 }
