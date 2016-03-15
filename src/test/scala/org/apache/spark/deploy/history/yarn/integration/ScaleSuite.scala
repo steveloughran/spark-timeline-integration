@@ -48,21 +48,19 @@ class ScaleSuite extends AbstractHistoryIntegrationTests
   val SCALE_TEST_JOBS = "scale.test.jobs"
   val SCALE_TEST_BATCH_SIZE = "scale.test.batch.size"
   val SCALE_TEST_QUEUE_SIZE = "scale.test.queue.size"
-  val jobs = Integer.getInteger(SCALE_TEST_JOBS, 100)
-  val batchSize = Integer.getInteger(SCALE_TEST_BATCH_SIZE, 200)
-  val queueSize = Integer.getInteger(SCALE_TEST_QUEUE_SIZE, jobs * 20)
+  val jobs = Integer.getInteger(SCALE_TEST_JOBS, 100).toInt
+  val batchSize = Integer.getInteger(SCALE_TEST_BATCH_SIZE, 200).toInt
+  val queueSize = Integer.getInteger(SCALE_TEST_QUEUE_SIZE, jobs * 20).toInt
   val spinTimeout = (10 + jobs) * 1000
 
   /** number of retained jobs in spark UI. */
   val RETAINED_JOBS = 1000
 
-//  override def useMiniHDFS: Boolean = true
-
   override def setupConfiguration(sparkConf: SparkConf): SparkConf = {
     super.setupConfiguration(sparkConf)
-        .set(YarnHistoryService.BATCH_SIZE, batchSize.toString)
-        .set(YarnHistoryService.POST_EVENT_LIMIT, queueSize.toString)
-        .set("spark.ui.retainedJobs", RETAINED_JOBS.toString)
+      .set(YarnHistoryService.BATCH_SIZE, batchSize.toString)
+      .set(YarnHistoryService.POST_EVENT_LIMIT, queueSize.toString)
+      .set("spark.ui.retainedJobs", RETAINED_JOBS.toString)
   }
 
   test("Scale test driven by value of " + SCALE_TEST_JOBS) {
