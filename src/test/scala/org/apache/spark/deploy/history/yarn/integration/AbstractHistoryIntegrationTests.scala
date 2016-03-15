@@ -758,7 +758,7 @@ abstract class AbstractHistoryIntegrationTests
     eventTime(sparkEvent).getOrElse {
       throw new RuntimeException(s"No time from $sparkEvent")
     }
-    assert(historyService.enqueue(sparkEvent))
+    assert(historyService.process(sparkEvent))
   }
 
   /**

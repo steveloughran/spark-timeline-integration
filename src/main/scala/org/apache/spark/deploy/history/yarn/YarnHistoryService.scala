@@ -553,14 +553,15 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
   }
 
   /**
-   * Queue an action, or, if the service's `stopped` flag is set, discard it.
+   * Process an action, or, if the service's `stopped` flag is set, discard it.
    *
-   * This is the method called by the event listener when forward events to the service.
-    *
-    * @param event event to process
+   * This is the method called by the event listener when forwarding events to the service,
+   * and at shutdown.
+   *
+   * @param event event to process
    * @return true if the event was queued
    */
-  def enqueue(event: SparkListenerEvent): Boolean = {
+  def process(event: SparkListenerEvent): Boolean = {
     if (!postingQueueStopped.get) {
       metrics.sparkEventsQueued.inc()
       logDebug(s"Enqueue $event")
@@ -623,7 +624,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
       if (appStartEventProcessed.get && !appEndEventProcessed.get) {
         // push out an application stop event if none has been received
         logDebug("Generating a SparkListenerApplicationEnd during service stop()")
-        enqueue(SparkListenerApplicationEnd(now()))
+        process(SparkListenerApplicationEnd(now()))
       }
 
       // flush out the events

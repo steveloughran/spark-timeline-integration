@@ -36,7 +36,7 @@ private[spark] class YarnEventListener(sc: SparkContext, service: YarnHistorySer
    * @param event event to queue
    */
   override def onEvent(event: SparkListenerEvent): Unit = {
-    service.enqueue(event)
+    service.process(event)
   }
 
 }

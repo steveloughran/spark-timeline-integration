@@ -57,8 +57,8 @@ class HistoryWithDisabledTimelineSuite extends AbstractYarnHistoryTests {
       val service = new YarnHistoryService()
       try {
         service.start(SchedulerExtensionServiceBinding(sc, applicationId, Some(attemptId)))
-        service.enqueue(appStartEvent())
-        service.enqueue(appStopEvent())
+        service.process(appStartEvent())
+        service.process(appStopEvent())
 
         assert(0 === service.eventsQueued, "queue")
 

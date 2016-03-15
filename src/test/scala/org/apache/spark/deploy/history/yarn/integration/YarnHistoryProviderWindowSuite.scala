@@ -84,11 +84,9 @@ class YarnHistoryProviderWindowSuite
       history2 = startHistoryService(sc, applicationId2,
       Some(appReport2.getCurrentApplicationAttemptId))
 
-      val start2 = appStartEvent(start2Time, appId2, user, Some(attemptId2.toString))
-      history2.enqueue(start2)
+      history2.process(appStartEvent(start2Time, appId2, user, Some(attemptId2.toString)))
       val end2Time = start2Time + minute
-      val end2 = appStopEvent(end2Time)
-      history2.enqueue(end2)
+      history2.process(appStopEvent(end2Time))
       // stop the second application
       stopHistoryService(history2)
       completed(history2)
@@ -101,7 +99,6 @@ class YarnHistoryProviderWindowSuite
       addFailureAction(failureLog(s"History Service 1: $historyService"))
       addFailureAction(dumpProviderState(provider))
       addFailureAction(dumpTimelineEntities(provider))
-
 
       // now read it in via history provider
       describe("read in listing")
@@ -119,7 +116,7 @@ class YarnHistoryProviderWindowSuite
       assert(!isCompleted(applicationInfo1_1), s"$applicationInfo1_1 completed in L1 $listing1")
 
       describe("stop application 1")
-      historyService.enqueue(appStopEvent(provider.tick()))
+      historyService.process(appStopEvent(provider.tick()))
       stopHistoryService(historyService)
       completed(historyService)
 
