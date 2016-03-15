@@ -1234,6 +1234,8 @@ private[yarn] class HistoryMetrics(owner: YarnHistoryService) extends ExtendedMe
   /** Timer to build up statistics on post operation times */
   val postOperationTimer = new Timer()
 
+  val postTimestamp = new TimeInMillisecondsGauge()
+
   val metricsMap: Map[String, Metric] = Map(
     "eventsDropped" -> eventsDropped,
     "eventsProcessed" -> eventsProcessed,
@@ -1244,6 +1246,7 @@ private[yarn] class HistoryMetrics(owner: YarnHistoryService) extends ExtendedMe
     "entityPostRejections" -> entityPostRejections,
     "entityPostSuccesses" -> entityPostSuccesses,
     "entityPostTimer" -> postOperationTimer,
+    "entityPostTimestamp" -> postTimestamp,
     "flushCount" -> flushCount
   )
 

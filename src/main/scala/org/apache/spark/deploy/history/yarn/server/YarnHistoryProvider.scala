@@ -37,8 +37,8 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.spark.{Logging, SecurityManager, SparkConf, SparkException}
 import org.apache.spark.deploy.SparkHadoopUtil
 import org.apache.spark.deploy.history.{ApplicationHistoryProvider, HistoryServer, LoadedAppUI}
+import org.apache.spark.deploy.history.yarn.{TimeInMillisecondsGauge, ExtendedMetricsSource, YarnTimelineUtils}
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
-import org.apache.spark.deploy.history.yarn.{ExtendedMetricsSource, YarnTimelineUtils}
 import org.apache.spark.deploy.history.yarn.YarnTimelineUtils._
 import org.apache.spark.deploy.history.yarn.rest.JerseyBinding
 import org.apache.spark.deploy.history.yarn.server.TimelineQueryClient._
@@ -602,11 +602,11 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
    * @return List of all known applications.
    */
   def listAndCacheApplications(startup: Boolean): ApplicationListingResults = {
+    val history = getApplications.applications
+    val refreshStartTime = now()
     metrics.refreshCount.inc()
     _refreshInProgress.set(true)
-    val history = getApplications.applications
-
-    val refreshStartTime = now()
+    metrics.refreshLastAttemptTime.time = refreshStartTime
     metrics.time(metrics.refreshDuration) {
       try {
         // work out the start of the new window
@@ -639,6 +639,7 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
             // and a final result
             setApplications(new ApplicationListingResults(results.timestamp, sorted, None))
             resetLastFailure()
+            metrics.refreshLastSuccessTime.time = refreshStartTime
           } else {
             // on a failure, the failure cause is updated
             setLastFailure(results.failureCause.get, results.timestamp)
@@ -703,7 +704,7 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
    */
   def getTimelineEntity(entityId: String): TimelineEntity = {
     logDebug(s"GetTimelineEntity $entityId")
-    metrics.time(metrics.attemptFetchDuration){
+    metrics.time(metrics.attemptFetchDuration) {
       maybeCheckEndpoint()
       getTimelineQueryClient.getEntity(SPARK_EVENT_ENTITY_TYPE, entityId)
     }
@@ -845,8 +846,7 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
       // add detailed information if enabled
       if (detailedInfo) {
         state = state ++ Map(
-          KEY_X_TOKEN_RENEWAL ->
-              humanDateCurrentTZ(timelineQueryClient.lastTokenRenewal, TEXT_NEVER_UPDATED),
+          KEY_X_TOKEN_RENEWAL -> metrics.tokenRenewalTime.toString,
           KEY_X_TOKEN_RENEWAL_COUNT -> timelineQueryClient.tokenRenewalCount.toString,
           KEY_X_INTERNAL_STATE -> s"$this",
           KEY_X_MIN_REFRESH_INTERVAL -> s"$manualRefreshInterval mS",
@@ -1246,6 +1246,12 @@ private[history] class YarnHistoryProviderMetrics(owner: YarnHistoryProvider)
   /** Timer of background refresh operations. */
   val refreshDuration = new Timer()
 
+  /** When was a refresh last successful (0 == never). */
+  val refreshLastSuccessTime = new TimeInMillisecondsGauge()
+
+  /** When was a refresh last attempted (0 == never). */
+  val refreshLastAttemptTime = new TimeInMillisecondsGauge()
+
   /** Counter of number of application attempts that have been loaded. */
   val attemptLoadCount = new Counter()
 
@@ -1276,7 +1282,7 @@ private[history] class YarnHistoryProviderMetrics(owner: YarnHistoryProvider)
   }
 
   /** The time the token was last renewed. */
-  val tokenRenewalTime = new Gauge[Long] {
+  val tokenRenewalTime = new TimeInMillisecondsGauge {
     override def getValue = owner.getTimelineQueryClient.lastTokenRenewal
   }
 

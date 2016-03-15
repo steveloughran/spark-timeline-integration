@@ -17,7 +17,9 @@
 
 package org.apache.spark.deploy.history.yarn
 
-import com.codahale.metrics.{Metric, Timer}
+import java.util.Date
+
+import com.codahale.metrics.{Gauge, Metric, Timer}
 
 import org.apache.spark.metrics.source.Source
 
@@ -29,6 +31,7 @@ private[history] trait ExtendedMetricsSource extends Source {
 
   /**
    * A map to build up of all metrics to register and include in the string value
+   *
    * @return
    */
   def metricsMap: Map[String, Metric]
@@ -45,6 +48,7 @@ private[history] trait ExtendedMetricsSource extends Source {
 
   /**
    * Time a closure, returning its output.
+   *
    * @param t timer
    * @param f function
    * @tparam T type of return value of the function
@@ -56,6 +60,40 @@ private[history] trait ExtendedMetricsSource extends Source {
       f
     } finally {
       timeCtx.close()
+    }
+  }
+}
+
+/**
+ * A gauge to  count time in milliseconds.
+ */
+private[spark] class TimeInMillisecondsGauge extends Gauge[Long] {
+  @volatile
+  var time: Long = 0L
+
+  /**
+   * Set the time to "now"; return the value as set
+   *
+   * @return the time
+   */
+  def touch(): Long = {
+    val t = System.currentTimeMillis()
+    time = t
+    t
+  }
+
+  override def getValue: Long = time
+
+  /**
+   * Return the value as `Date.toString()` unless it is `1/1/70`, in which case "unset" is returned.
+   * @return
+   */
+  override def toString: String = {
+    val t = getValue
+    if (t <= 0) {
+      "unset"
+    } else {
+      new Date(t).toString
     }
   }
 }
