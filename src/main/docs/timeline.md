@@ -383,7 +383,21 @@ the data.
 
 ### The application is not found
 
-1. Get the listing of application attempts from
+1. It may just not have appeared through the refresh process. Depending upon the refresh
+settings, wait a minute or so, possibly refreshing the history page a couple of times.
+1. Get the listing of application attempts from the ATS server (as listed above), see if it is there.
+
+### Spark History Server cannot get histories on a secure cluster
+
+(+and the stack traces show security messages in there)
+
+This is inevitably some kind of Kerberos configuration problem.
+
+Consult the [list of common error messages](https://steveloughran.gitbooks.io/kerberos_and_hadoop/content/sections/errors.html).
+
+### Spark History Server stops being able to read histories after 24/48/72h
+
+The Kerberos tokens of whoever started the service have expired; the keytab refresh isn't helping.
 
 ## Adding extra diagnostics to the history server.
 
@@ -400,7 +414,7 @@ query the YARN history server
 ## Disabling History logging on a specific Spark Application
 
 
-There are multiple ways to do this
+There are multiple ways to do this:
 
 Set the list of of Yarn service to load to ""
 
