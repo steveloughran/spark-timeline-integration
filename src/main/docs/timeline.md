@@ -15,7 +15,7 @@
    limitations under the License.
 -->
 
-## Hadoop YARN Timeline service history provider
+## Hadoop YARN Timeline Service Integration
 
 As well as the Filesystem History Provider, Spark can integrate with the Hadoop YARN
 "Application Timeline Service". This is a service which runs in a YARN cluster, recording
@@ -109,14 +109,23 @@ Specific configuration options:
     <td><code>spark.hadoop.yarn.timeline.post.retry.interval</code></td>
     <td>1s</td>
     <td>
-    Interval in milliseconds between POST retries. Every
+    Interval between POST retries. Every
     failure adds another delay of this interval before the next retry
-    attempt. That is, first 1s, then 2s, 3s, ...
+    attempt. The default sequence is therefore: 1s, then 2s, 3s, ...,
+    until <code>spark.hadoop.yarn.timeline.post.retry.max.interval</code>
+    is reached.
+    </td>
+  </tr>
+  <tr>
+    <td><code>spark.hadoop.yarn.timeline.post.retry.max.interval</code></td>
+    <td>60s</td>
+    <td>
+    The maximum interval between POST retries.
     </td>
   </tr>
   <tr>
     <td><code>spark.hadoop.yarn.timeline.batch.size</code></td>
-    <td>3</td>
+    <td>100</td>
     <td>
     How many events to batch up before submitting them to the timeline service.
     This is a performance optimization.
@@ -287,3 +296,43 @@ to disable that option entirely.
 </table>
 
 
+## Limitations
+
+The YARN Application Timeline Service v1-1.5 has some limitations on scaleability on availability;
+work to address this is ongoing.
+
+
+1. The 1.0 API (Hadoop 2.6-2.7) is REST-based. If the server is down, then a backlog of events
+will build up. The configuration parameter `spark.hadoop.yarn.timeline.post.limit` sets a limit,
+after which spark events will be discarded.
+
+1. The 1.5 API saves events to HDFS; data can be written while HDFS is available. The option
+`spark.hadoop.yarn.timeline.post.limit` still sets the limit of events to queue, but server
+outages, hence queue overflow, is less.
+
+1. There's a limit to how many events can be retrieved from the timeline server for a single
+application instance. Tens of thousands of spark events can be stored and retrieved, but
+long-lived spark streaming applications will reach these limits.
+
+For this reason, we recommend that logging to the YARN ATS system is not used for spark streaming
+applications.
+
+## Troubleshooting
+
+Problems related to Spark and ATS integration usually fall into the categories of: scale,
+failure handling and security; the "usual"
+
+
+### Disabling Histories on a specific Job
+
+
+Set the list of of Yarn service to load to ""
+
+    spark.yarn.services
+
+Tell the spark application that the YARN timeline service is not running
+
+    spark.hadoop.yarn.timeline-service.enabled false
+
+This still loads the history service plugin into the Spark Application —but it does not
+attempt to publish any history events to YARN.
