@@ -163,7 +163,7 @@ abstract class AbstractHistoryIntegrationTests
 
   /**
    * Stop all services, including, if set, anything in
-   * <code>historyService</code>
+   * `historyService`
    */
   override def afterEach(): Unit = {
     describe("Teardown of history server, timeline client and history service")

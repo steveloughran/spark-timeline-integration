@@ -57,9 +57,8 @@ import org.apache.spark.util.{SystemClock, Utils}
  * 1. If an attempt to post to the timeline server fails, the service sleeps and then
  * it is re-attempted after the retry period defined by
  * `spark.hadoop.yarn.timeline.post.retry.interval`.
- * 1. If the number of events buffered in the history service exceed the limit set in
- * `spark.hadoop.yarn.timeline.post.limit`, then further events other than application start/stop
- * are dropped.
+ * 1. If the number of events buffered in the history service exceeds the configured limit set,
+ * then further events other than application start/stop are dropped.
  * 1. When the service is stopped, it will make a best-effort attempt to post all queued events.
  * the call of [[stop()]] can block up to the duration of
  * `spark.hadoop.yarn.timeline.shutdown.waittime` for this to take place.
@@ -185,6 +184,9 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
   /** What is the initial and incrementing interval for POST retries? */
   private var retryInterval = 0L
 
+  /** What is the max interval for POST retries? */
+  private var retryIntervalMax = 0L
+
   /** Domain ID for entities: may be null. */
   private var domainId: Option[String] = None
 
@@ -201,8 +203,8 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
    *
    * The method is private to the package so that tests can access it, which
    * some of the mock tests do to override the timeline client creation.
-    *
-    * @return the timeline client
+   *
+   * @return the timeline client
    */
   private[yarn] def createTimelineClient(): TimelineClient = {
     require(_timelineClient.isEmpty, "timeline client already set")
@@ -211,8 +213,8 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
 
   /**
    * Get the timeline client.
-    *
-    * @return the client
+   *
+   * @return the client
    * @throws Exception if the timeline client is not currently running
    */
   def timelineClient: TimelineClient = {
@@ -221,16 +223,16 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
 
   /**
    * Get the configuration of this service.
-    *
-    * @return the configuration as a YarnConfiguration instance
+   *
+   * @return the configuration as a YarnConfiguration instance
    */
   def yarnConfiguration: YarnConfiguration = config
 
   /**
    * Get the total number of events dropped due to the queue of
    * outstanding posts being too long.
-    *
-    * @return counter of events processed
+   *
+   * @return counter of events processed
    */
 
   def eventsDropped: Long = metrics.eventsDropped.getCount
@@ -385,32 +387,37 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
       case None => CLIENT_BACKEND_ATTEMPT_ID
     }
     setContextAppAndAttemptInfo(Some(appId.toString), Some(attempt1))
-    batchSize = sparkConf.getInt(BATCH_SIZE, batchSize)
-    postQueueLimit = sparkConf.getInt(POST_EVENT_LIMIT, postQueueLimit)
-    val batchMultiplier = 2
-    if ((batchSize * batchMultiplier) > postQueueLimit) {
-      logWarning(s"Limit on number of queued events $postQueueLimit is too small compared" +
-      s"to the batch size of a single post $batchSize; uprating")
-      postQueueLimit = batchSize * batchMultiplier;
+
+    def intOption(key: String, defVal: Int): Int = {
+      val v = sparkConf.getInt(key, defVal)
+      require(v > 0, s"Option $key out of range: $v")
+      v
     }
-    retryInterval = 1000 * sparkConf.getTimeAsSeconds(POST_RETRY_INTERVAL,
-      DEFAULT_POST_RETRY_INTERVAL)
-    shutdownWaitTime = 1000 * sparkConf.getTimeAsSeconds(SHUTDOWN_WAIT_TIME,
-      DEFAULT_SHUTDOWN_WAIT_TIME)
+    def millis(key: String, defVal: String): Long = {
+      1000 * sparkConf.getTimeAsSeconds(key, defVal)
+    }
+
+    batchSize = intOption(BATCH_SIZE, batchSize)
+    postQueueLimit = batchSize + intOption(POST_EVENT_LIMIT, postQueueLimit)
+
+    retryInterval = millis(POST_RETRY_INTERVAL, DEFAULT_POST_RETRY_INTERVAL)
+    retryIntervalMax = millis(POST_RETRY_MAX_INTERVAL, DEFAULT_POST_RETRY_MAX_INTERVAL)
+    shutdownWaitTime = millis(SHUTDOWN_WAIT_TIME, DEFAULT_SHUTDOWN_WAIT_TIME)
 
     // the full metrics integration happens if the spark context has a metrics system
     contextMetricsSystem.foreach(_.registerSource(metrics))
 
-    // set up the timeline service, unless it's been disabled for testing
+    // set up the timeline service, unless it's been disabled
     if (timelineServiceEnabled) {
       startTimelineReporter()
+      if (registerListener()) {
+        logInfo(s"History Service listening for events: $this")
+      } else {
+        // special test option; listener is inactive
+        logWarning(s"History Service is not listening for events: $this")
+      }
     } else {
-      logInfo("Timeline service is disabled")
-    }
-    if (registerListener()) {
-      logInfo(s"History Service listening for events: $this")
-    } else {
-      logInfo(s"History Service is not listening for events: $this")
+      logInfo("YARN History Service integration is disabled")
     }
   }
 
@@ -940,9 +947,10 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
    *
    * @param retryInterval delay in milliseconds for the first retry delay; the delay increases
    *        by this value on every future failure. If zero, there is no delay, ever.
+   * @param retryMax maximum interval time in milliseconds
    * @return the [[StopQueueAction]] received to stop the process.
    */
-  private def postEntities(retryInterval: Long): StopQueueAction = {
+  private def postEntities(retryInterval: Long, retryMax: Long): StopQueueAction = {
     var lastAttemptFailed = false
     var currentRetryDelay = retryInterval
     var result: StopQueueAction = null
@@ -959,9 +967,9 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
                 }
                 // log failure and queue for posting again
                 lastAttemptFailed = true
-                currentRetryDelay += retryInterval
                 // push back to the head of the queue
                 postingQueue.addFirst(PostEntity(entity))
+                currentRetryDelay = Math.min(currentRetryDelay + retryInterval, retryMax)
                 if (currentRetryDelay > 0) {
                   Thread.sleep(currentRetryDelay)
                 }
@@ -1152,7 +1160,7 @@ private[spark] class YarnHistoryService extends SchedulerExtensionService with L
     override def run(): Unit = {
       postThreadActive.set(true)
       try {
-        val shutdown = postEntities(retryInterval)
+        val shutdown = postEntities(retryInterval, retryIntervalMax)
         // getting here means the `stop` flag is true
         postEntitiesShutdownPhase(shutdown, retryInterval)
         logInfo(s"Stopping dequeue service, final queue size is ${postingQueue.size};" +
@@ -1302,23 +1310,23 @@ private[spark] object YarnHistoryService {
   val BATCH_SIZE = "spark.hadoop.yarn.timeline.batch.size"
 
   /**
-   * The default size of a batch
+   * The default size of a batch.
    */
   val DEFAULT_BATCH_SIZE = 100
 
   /**
-   * Name of a domain for the timeline
+   * Name of a domain for the timeline.
    */
   val TIMELINE_DOMAIN = "spark.hadoop.yarn.timeline.domain"
 
   /**
    * Limit on number of posts in the outbound queue -when exceeded
-   * new events will be dropped
+   * new events will be dropped.
    */
   val POST_EVENT_LIMIT = "spark.hadoop.yarn.timeline.post.limit"
 
     /**
-   * The default limit of events in the post queue
+   * The default limit of events in the post queue.
    */
   val DEFAULT_POST_EVENT_LIMIT = 10000
 
@@ -1329,17 +1337,28 @@ private[spark] object YarnHistoryService {
   val POST_RETRY_INTERVAL = "spark.hadoop.yarn.timeline.post.retry.interval"
 
   /**
-   * The default retry interval in millis
+   * The default retry interval in millis.
    */
   val DEFAULT_POST_RETRY_INTERVAL = "1000ms"
 
   /**
-   * Primary key used for events
+   * The maximum interval between retries.
+   */
+
+  val POST_RETRY_MAX_INTERVAL = "spark.hadoop.yarn.timeline.post.retry.max.interval"
+
+  /**
+   * The default maximum retry interval.
+   */
+  val DEFAULT_POST_RETRY_MAX_INTERVAL = "60s"
+
+  /**
+   * Primary key used for events.
    */
   val PRIMARY_KEY = "spark_application_entity"
 
   /**
-   *  Entity `OTHER_INFO` field: start time
+   *  Entity `OTHER_INFO` field: start time.
    */
   val FIELD_START_TIME = "startTime"
 

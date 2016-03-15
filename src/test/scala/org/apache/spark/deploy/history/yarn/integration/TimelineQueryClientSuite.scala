@@ -83,14 +83,12 @@ class TimelineQueryClientSuite extends AbstractHistoryIntegrationTests {
   }
 
   test("Ls command") {
-
     val ls = new Ls()
     ls.setConf(historyService.yarnConfiguration)
     ls.exec(Seq()) should be(0)
     ls.exec(Seq(applicationId.toString)) should be(44)
     ls.exec(Seq("unparseable")) should be(-1)
   }
-
 
   test("PostEntity") {
     describe("post an entity and then retrieve it")
