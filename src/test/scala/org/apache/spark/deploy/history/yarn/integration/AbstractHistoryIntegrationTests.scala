@@ -41,7 +41,6 @@ import org.scalatest.concurrent.Eventually
 
 import org.apache.spark.deploy.history.yarn.YarnHistoryService._
 import org.apache.spark.deploy.history.yarn.server.TimelineQueryClient._
-import org.apache.spark.deploy.yarn.config._
 import org.apache.spark.status.api.v1.{JobData, StageData}
 import org.apache.spark.{SecurityManager, SparkConf}
 import org.apache.spark.deploy.history.{ApplicationHistoryProvider, FsHistoryProvider, HistoryServer}
@@ -130,7 +129,7 @@ abstract class AbstractHistoryIntegrationTests
    */
   override def setupConfiguration(sparkConf: SparkConf): SparkConf = {
     super.setupConfiguration(sparkConf)
-    sparkConf.set(SCHEDULER_SERVICES, Seq(YarnHistoryService.CLASSNAME))
+    addHistoryService(sparkConf)
     sparkConf.set(SPARK_HISTORY_PROVIDER, YarnHistoryProvider.YARN_HISTORY_PROVIDER_CLASS)
     sparkConf.set(OPTION_MANUAL_REFRESH_INTERVAL, "1ms")
     sparkConf.set(OPTION_BACKGROUND_REFRESH_INTERVAL, "0s")

@@ -75,12 +75,23 @@ abstract class AbstractYarnHistoryTests
 
   /**
    * Create the spark context
+   *
    * @param sparkConf configuration to extend
    */
   protected def createSparkContext(sparkConf: SparkConf): SparkContext = {
     sparkConf.setMaster("local").setAppName("AbstractYarnHistoryTests")
     logInfo("Creating a new spark context")
     new SparkContext(setupConfiguration(sparkConf))
+  }
+
+  /**
+   * Add the history service to the spark conf
+   *
+   * @param sparkConf configuratin to patch
+   * @return the patched configuration
+   */
+  def addHistoryService(sparkConf: SparkConf): SparkConf = {
+    sparkConf.set("spark.yarn.services", YarnHistoryService.CLASSNAME)
   }
 
   /**
@@ -106,6 +117,7 @@ abstract class AbstractYarnHistoryTests
   /**
    * Mark an application as having started; this propagates
    * to the `FSTimelineStoreForTesting`
+   *
    * @param applicationId application ID.
    */
   def started(applicationId: ApplicationId): Unit = {
@@ -116,6 +128,7 @@ abstract class AbstractYarnHistoryTests
    * Mark an application as having finished; this propagates
    * to the `FSTimelineStoreForTesting` state so is essential
    * to move to the next stage in history testing
+   *
    * @param applicationId application ID.
    */
   def completed(applicationId: ApplicationId): Unit = {
@@ -127,6 +140,7 @@ abstract class AbstractYarnHistoryTests
    * The @ of attempts posted is returned in the response to stop tests being brittle
    * against the numbe of events posted automatically. This is the code which posts the events
    * -it's the code that can reliably announce this.
+   *
    * @param sc context
    * @return (the (now closed) history service, the count of events posted for use in assertions)
    */

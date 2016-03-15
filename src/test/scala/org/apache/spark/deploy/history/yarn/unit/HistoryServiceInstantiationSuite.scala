@@ -21,7 +21,6 @@ import org.apache.spark.SparkConf
 import org.apache.spark.deploy.history.yarn.YarnHistoryService
 import org.apache.spark.deploy.history.yarn.testtools.AbstractYarnHistoryTests
 import org.apache.spark.deploy.history.yarn.testtools.YarnTestUtils._
-import org.apache.spark.deploy.yarn.config._
 import org.apache.spark.scheduler.cluster.{SchedulerExtensionServiceBinding, SchedulerExtensionServices}
 
 /**
@@ -31,7 +30,7 @@ class HistoryServiceInstantiationSuite extends AbstractYarnHistoryTests {
 
   override def setupConfiguration(sparkConf: SparkConf): SparkConf = {
     super.setupConfiguration(sparkConf)
-    sparkConf.set(SCHEDULER_SERVICES, Seq(YarnHistoryService.CLASSNAME))
+    addHistoryService(sparkConf)
   }
 
   test("Contains History Service") {
