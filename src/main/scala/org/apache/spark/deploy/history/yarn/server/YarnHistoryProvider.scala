@@ -1371,7 +1371,7 @@ private[spark] object YarnHistoryProvider {
    * its state mixed up on a listing operation.
    */
   val OPTION_EXPIRY_AGE = "spark.history.yarn.liveness.window"
-  val DEFAULT_LIVENESS_WINDOW_I = 60 * 60
+  val DEFAULT_LIVENESS_WINDOW_I = 10 * 60
   val DEFAULT_LIVENESS_WINDOW = s"${DEFAULT_LIVENESS_WINDOW_I}s"
 
   /**
