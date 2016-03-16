@@ -435,7 +435,7 @@ private[yarn] object YarnTimelineUtils extends Logging {
     * @return the timeline service version as a float.
     */
   def getTimelineServiceVersion(conf: Configuration): Float = {
-    conf.getFloat(TIMELINE_VERSION, 1.0f);
+    conf.getFloat(TIMELINE_VERSION, 1.0f)
   }
 
   /**
@@ -446,7 +446,7 @@ private[yarn] object YarnTimelineUtils extends Logging {
    */
   def timelineServiceV1_5Enabled(conf: Configuration): Boolean = {
     timelineServiceEnabled(conf) &&
-        Math.abs(getTimelineServiceVersion(conf) - 1.5) < 0.00001;
+        Math.abs(getTimelineServiceVersion(conf) - 1.5) < 0.00001
   }
 
   /**

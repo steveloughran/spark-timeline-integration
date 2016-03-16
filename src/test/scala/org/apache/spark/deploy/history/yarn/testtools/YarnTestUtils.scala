@@ -638,8 +638,8 @@ object YarnTestUtils extends ExtraAssertions with FreePortFinder {
   private[this] lazy val _jsonMapper = {
     val mapper = new ObjectMapper()
     mapper.registerModule(DefaultScalaModule)
-    val dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
-    mapper.setDateFormat(dateFormat);
+    val dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
+    mapper.setDateFormat(dateFormat)
     mapper
   }
 

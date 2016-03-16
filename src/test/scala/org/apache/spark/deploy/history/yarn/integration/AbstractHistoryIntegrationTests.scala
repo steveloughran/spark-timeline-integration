@@ -115,8 +115,8 @@ abstract class AbstractHistoryIntegrationTests
     super.setup()
     // WADL generator complains needlessly about scala introspection failures.
     val logger =
-      Logger.getLogger("com.sun.jersey.server.wadl.generators.WadlGeneratorJAXBGrammarGenerator");
-    logger.setLevel(java.util.logging.Level.OFF);
+      Logger.getLogger("com.sun.jersey.server.wadl.generators.WadlGeneratorJAXBGrammarGenerator")
+    logger.setLevel(java.util.logging.Level.OFF)
     startTimelineClientAndAHS(sc.hadoopConfiguration)
   }
 
