@@ -123,6 +123,9 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
   private val eventFetchLimit = sparkConf.getLong(OPTION_EVENT_FETCH_LIMIT,
     DEFAULT_EVENT_FETCH_LIMIT)
 
+  private val updateProbeWindowMs = sparkConf.getTimeAsSeconds(OPTION_APPLICATION_UPDATE_WINDOW,
+    DEFAULT_APPLICATION_UPDATE_WINDOW) * 1000
+
   /**
    * Convert the limit to an option where 0 is mapped to None.
    */
@@ -792,7 +795,12 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
           appListener.viewAcls.getOrElse(""))
         val latestState = toApplicationHistoryInfo(attemptEntity).attempts.head
         Some(LoadedAppUI(ui,
-          yarnUpdateProbe(appId, attemptId, latestState.version, latestState.lastUpdated)
+          if (attemptInfo.completed) {
+            completedAppProbe
+          } else {
+            yarnUpdateProbe(appId, attemptId, latestState.version, latestState.lastUpdated,
+              now() + updateProbeWindowMs)
+          }
         ))
       } catch {
 
@@ -966,16 +974,26 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
   }
 
   /**
-   * (Curried) update probe for attempts
+   * (Curried) update probe for attempts.
    *
+   * If the application is not found: false.
+   * If the app is now completed: true
+   * If the current time is less than `checkTime` false.
+   * Else: return true if the latest application attempt is newer than the current one.
+   *
+   * @param appId application
+   * @param attemptId attempt
    * @param version version field off entity (if found)
    * @param updated last updated field off entity (if found)
+   * @param checkTime time in millis to start checking for the update
+   * @return true if the application should be reloaded
    */
   def yarnUpdateProbe(
       appId: String,
       attemptId: Option[String],
       version: Long,
-      updated: Long)(): Boolean = {
+      updated: Long,
+      checkTime: Long)(): Boolean = {
     val (foundApp, attempt, attempts) = getApplications.lookupAttempt(appId, attemptId)
     attempt match {
       case None =>
@@ -983,8 +1001,16 @@ private[spark] class YarnHistoryProvider(sparkConf: SparkConf)
         false
       case Some(a) =>
         logDebug(s"attempt version=${a.version} in $a")
-        a.version > version
+        a.completed || (a.version > version && now() > checkTime)
     }
+  }
+
+  /**
+   * For a completed application, the probe always returns false: there is no update
+   * @return false
+   */
+  def completedAppProbe(): Boolean = {
+    false
   }
 
   /**
@@ -1380,6 +1406,12 @@ private[spark] object YarnHistoryProvider {
    */
   val OPTION_WINDOW_LIMIT = "spark.history.yarn.window.limit"
   val DEFAULT_WINDOW_LIMIT = "24h"
+
+  /**
+   * Minimum interval for probing for updated application;
+   */
+  val OPTION_APPLICATION_UPDATE_WINDOW = "spark.history.yarn.incomplete.refresh.window"
+  val DEFAULT_APPLICATION_UPDATE_WINDOW = "1m"
 
   /**
    * Option to enabled detailed/diagnostics view.
