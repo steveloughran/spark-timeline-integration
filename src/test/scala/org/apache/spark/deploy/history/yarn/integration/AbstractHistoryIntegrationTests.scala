@@ -820,7 +820,7 @@ abstract class AbstractHistoryIntegrationTests
   def enableATSv15: Boolean = true
 
   /** Name of the plugin; isolated from Java class in case that goes to its own JAR. */
-  val PLUGIN_CLASS = "org.apache.spark.deploy.history.yarn.plugin.SparkATSPlugin"
+  val SPARK_ATS_PLUGIN_CLASS = "org.apache.spark.deploy.history.yarn.plugin.SparkATSPlugin"
 
   /**
    * Everything needed to turn on ATS v1.5 timeline server and client.
@@ -867,7 +867,7 @@ abstract class AbstractHistoryIntegrationTests
     conf.set(TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_DONE_DIR, doneDir.toUri.toString)
     conf.set(TIMELINE_SERVICE_LEVELDB_PATH, leveldbDir.getAbsolutePath)
     conf.set(TIMELINE_SERVICE_STORE, classOf[FSTimelineStoreForTesting].getName)
-    conf.set(TIMELINE_SERVICE_ENTITY_GROUP_PLUGIN_CLASSES, PLUGIN_CLASS)
+    conf.set(TIMELINE_SERVICE_ENTITY_GROUP_PLUGIN_CLASSES, SPARK_ATS_PLUGIN_CLASS)
     conf.setBoolean(TIMELINE_SERVICE_TTL_ENABLE, false)
 
     conf.setLong(TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_SCAN_INTERVAL_SECONDS, 1)
@@ -875,7 +875,8 @@ abstract class AbstractHistoryIntegrationTests
 
     conf.setLong(YARN_CLIENT_APPLICATION_CLIENT_PROTOCOL_POLL_INTERVAL_MS, 100)
     conf.getLong(YARN_CLIENT_APPLICATION_CLIENT_PROTOCOL_POLL_TIMEOUT_MS, 1000)
-    conf.setBoolean(TIMELINE_SERVICE_PREFIX + "entity-file.fs-support-append", false);
+    conf.setBoolean(TIMELINE_SERVICE_PREFIX + "entity-file.fs-support-append",
+      !useMiniHDFS)
 
     conf.set(TIMELINE_SERVICE_ENTITYGROUP_FS_STORE_SUMMARY_ENTITY_TYPES,
       "YARN_APPLICATION,YARN_APPLICATION_ATTEMPT,YARN_CONTAINER,"
