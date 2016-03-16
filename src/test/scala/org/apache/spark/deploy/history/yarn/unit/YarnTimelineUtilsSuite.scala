@@ -19,6 +19,9 @@ package org.apache.spark.deploy.history.yarn.unit
 
 import java.net.{NoRouteToHostException, URI}
 
+import org.apache.hadoop.http.HttpConfig
+import org.apache.hadoop.yarn.conf.YarnConfiguration
+import org.apache.hadoop.yarn.conf.YarnConfiguration._
 import org.scalatest.BeforeAndAfter
 
 import org.apache.spark.{Logging, SparkFunSuite}
@@ -45,6 +48,29 @@ class YarnTimelineUtilsSuite extends SparkFunSuite
 
   test("verifyValid") {
     validateEndpoint(new URI("http://127.0.1.1:8080/ws"))
+  }
+
+  test("HTTPS timeline") {
+    val conf = new YarnConfiguration()
+    assert("0.0.0.0:8190" === conf.get(TIMELINE_SERVICE_WEBAPP_HTTPS_ADDRESS))
+    conf.set(YARN_HTTP_POLICY_KEY, HttpConfig.Policy.HTTPS_ONLY.toString)
+    val address = "localhost:8190"
+    conf.set(TIMELINE_SERVICE_WEBAPP_HTTPS_ADDRESS, address)
+    assert(address === conf.get(TIMELINE_SERVICE_WEBAPP_HTTPS_ADDRESS))
+    assert(address === conf.getTrimmed(TIMELINE_SERVICE_WEBAPP_HTTPS_ADDRESS,
+          DEFAULT_TIMELINE_SERVICE_WEBAPP_HTTPS_ADDRESS))
+    assert(address === getTimelineWebappAddress(conf, true))
+
+    assert(s"https://$address/ws/v1/timeline/" === getTimelineEndpoint(conf).toString)
+  }
+
+  test("HTTP timeline") {
+    val conf = new YarnConfiguration()
+    conf.set(YARN_HTTP_POLICY_KEY, HttpConfig.Policy.HTTP_ONLY.toString)
+    val address = "localhost:8199"
+    conf.set(TIMELINE_SERVICE_WEBAPP_ADDRESS, address)
+    assert(address === getTimelineWebappAddress(conf, false))
+    assert("http://" + address + "/ws/v1/timeline/" === getTimelineEndpoint(conf).toString)
   }
 
 }

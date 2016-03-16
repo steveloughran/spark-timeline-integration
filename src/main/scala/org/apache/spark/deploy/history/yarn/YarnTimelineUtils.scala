@@ -45,7 +45,7 @@ import org.apache.spark.util.{JsonProtocol, Utils}
 /**
  * Utility methods for timeline classes.
  */
-private[spark] object YarnTimelineUtils extends Logging {
+private[yarn] object YarnTimelineUtils extends Logging {
 
   /**
    * What attempt ID to use as the attempt ID field (not the entity ID) when
@@ -269,7 +269,7 @@ private[spark] object YarnTimelineUtils extends Logging {
    * @param field field name for error message
    * @return a string to describe the field
    */
-  def timeFieldToString(time: Long, field: String): String = {
+  def timeFieldToString(time: java.lang.Long, field: String): String = {
     if (time != null) {
       new Date(time).toString
     } else {
@@ -350,7 +350,7 @@ private[spark] object YarnTimelineUtils extends Logging {
   /**
    * The path for the V1 ATS REST API.
    */
-  val TIMELINE_REST_PATH = s"/ws/v1/timeline/"
+  val TIMELINE_REST_PATH = "/ws/v1/timeline/"
 
   /**
    * Build the URI to the base of the timeline web application
@@ -365,17 +365,31 @@ private[spark] object YarnTimelineUtils extends Logging {
    * @return the URI to the timeline service.
    */
   def getTimelineEndpoint(conf: Configuration): URI = {
-    val isHttps = YarnConfiguration.useHttps(conf)
-    val address = if (isHttps) {
-      conf.get(YarnConfiguration.TIMELINE_SERVICE_WEBAPP_HTTPS_ADDRESS,
-        YarnConfiguration.DEFAULT_TIMELINE_SERVICE_WEBAPP_HTTPS_ADDRESS)
-    } else {
-      conf.get(YarnConfiguration.TIMELINE_SERVICE_WEBAPP_ADDRESS,
-        YarnConfiguration.DEFAULT_TIMELINE_SERVICE_WEBAPP_ADDRESS)
-    }
+    val isHttps = yarnServicesAreHttps(conf)
+    val address= getTimelineWebappAddress(conf, isHttps)
     val protocol = if (isHttps) "https://" else "http://"
     require(address != null, s"No timeline service defined")
     validateEndpoint(URI.create(s"$protocol$address$TIMELINE_REST_PATH"))
+  }
+
+  def getTimelineWebappAddress(conf: Configuration, isHttps: Boolean): String = {
+    if (isHttps) {
+      conf.getTrimmed(YarnConfiguration.TIMELINE_SERVICE_WEBAPP_HTTPS_ADDRESS,
+        YarnConfiguration.DEFAULT_TIMELINE_SERVICE_WEBAPP_HTTPS_ADDRESS)
+    } else {
+      conf.getTrimmed(YarnConfiguration.TIMELINE_SERVICE_WEBAPP_ADDRESS,
+        YarnConfiguration.DEFAULT_TIMELINE_SERVICE_WEBAPP_ADDRESS)
+    }
+  }
+
+  /**
+   * query to see if the yarn services are HTTPS
+   *
+   * @param conf configuration
+   * @return true if HTTPS is enabled
+   */
+  def yarnServicesAreHttps(conf: Configuration): Boolean = {
+    YarnConfiguration.useHttps(conf)
   }
 
   /**
@@ -411,6 +425,8 @@ private[spark] object YarnTimelineUtils extends Logging {
       YarnConfiguration.DEFAULT_TIMELINE_SERVICE_ENABLED)
   }
 
+  val TIMELINE_VERSION = "yarn.timeline-service.version"
+
   /**
     * Returns the timeline service version. It does not check whether the
     * timeline service itself is enabled.
@@ -419,8 +435,7 @@ private[spark] object YarnTimelineUtils extends Logging {
     * @return the timeline service version as a float.
     */
   def getTimelineServiceVersion(conf: Configuration): Float = {
-    conf.getFloat(YarnConfiguration.TIMELINE_SERVICE_VERSION,
-      YarnConfiguration.DEFAULT_TIMELINE_SERVICE_VERSION);
+    conf.getFloat(TIMELINE_VERSION, 1.0f);
   }
 
   /**

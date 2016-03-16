@@ -844,7 +844,7 @@ abstract class AbstractHistoryIntegrationTests
     val leveldbDir = new File(integrationDir, "leveldb")
     leveldbDir.mkdirs()
 
-    conf.setFloat(TIMELINE_SERVICE_VERSION, 1.5f)
+    conf.setFloat(TIMELINE_VERSION, 1.5f)
     // try to turn off checksums
     conf.setInt(TIMELINE_SERVICE_CLIENT_FD_FLUSH_INTERVAL_SECS, 1)
     conf.setInt(TIMELINE_SERVICE_CLIENT_FD_RETAIN_SECS, 1)
