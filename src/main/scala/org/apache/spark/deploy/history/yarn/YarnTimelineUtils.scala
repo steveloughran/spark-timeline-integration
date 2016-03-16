@@ -366,7 +366,7 @@ private[yarn] object YarnTimelineUtils extends Logging {
    */
   def getTimelineEndpoint(conf: Configuration): URI = {
     val isHttps = yarnServicesAreHttps(conf)
-    val address= getTimelineWebappAddress(conf, isHttps)
+    val address = getTimelineWebappAddress(conf, isHttps)
     val protocol = if (isHttps) "https://" else "http://"
     require(address != null, s"No timeline service defined")
     validateEndpoint(URI.create(s"$protocol$address$TIMELINE_REST_PATH"))
