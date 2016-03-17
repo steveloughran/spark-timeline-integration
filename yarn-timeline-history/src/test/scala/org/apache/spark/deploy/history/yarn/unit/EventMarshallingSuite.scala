@@ -43,8 +43,8 @@ class EventMarshallingSuite extends SparkFunSuite
     stageInfo.submissionTime = Some(100000)
     stageInfo.completionTime = Some(200000)
     stageInfo.failureReason = Some("network problems")
-    val ai = new AccumulableInfo(1L, Some("accumulator"), Some("update"), Some("value"),
-      false, false, None)
+    val ai = new AccumulableInfo(1L, "accumulator", Some("update"), "value",
+      false)
     stageInfo.accumulables.put(1, ai)
   }
 
