@@ -45,23 +45,27 @@
     <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-yarn-server-timeline-pluginstorage</artifactId>
-      <scope>provided</scope>
     </dependency>
   </dependencies>
 
   <build>
     <outputDirectory>target/scala-${scala.binary.version}/classes</outputDirectory>
     <testOutputDirectory>target/scala-${scala.binary.version}/test-classes</testOutputDirectory>
- <!--   <plugins>
+    <plugins>
+
+      <!-- an empty phase disables the shade -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
         <configuration>
-          <createDependencyReducedPom>false</createDependencyReducedPom>
-          <shadeTestJar>false</shadeTestJar>
         </configuration>
+        <executions>
+          <execution>
+            <phase/>
+          </execution>
+        </executions>
       </plugin>
-    </plugins>-->
+    </plugins>
   </build>
 
 </project>
