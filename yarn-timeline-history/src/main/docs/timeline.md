@@ -30,9 +30,11 @@ Spark integrates with the timeline service by
 
 For details on configuring and starting the timeline service, consult the Hadoop documentation.
 
-What is critical is to add the `spark-timeline-integration` JAR to the classpath
+What is critical is to add the `spark-yarn-timeline-ats-plugin` JAR to the classpath
 of the YARN Timeline Server. This contains a Java class which is used to help parse the
 events and create summary information from them.
+
+If this JAR is not present, the ATS "1.0" API can be used, but not the "1.5" API.
 
 ### Configuring `yarn-site.xml`
 
