@@ -35,7 +35,15 @@
   <groupId>org.apache.spark</groupId>
   <artifactId>spark-yarn-timeline-ats-plugin_2.10</artifactId>
   <packaging>jar</packaging>
-  <name>Spark Timeline Integration</name>
+  <name>Spark Project YARN Timeline Plugin</name>
+  <description>
+    This is a minimal pure-Java JAR which needs to be added to the
+    YARN ATS classpath in order for it to successfully process histories
+    published to it via the cluster's filesystem —that is, the ATS1.5 API.
+
+    It is not intended for incorporation in any assembly JAR, and is only
+    used by the yarn-timeline-history module at test time.
+  </description>
   <version>1.6.1</version>
   <properties>
     <sbt.project.name>spark-yarn-timeline-ats-plugin</sbt.project.name>
