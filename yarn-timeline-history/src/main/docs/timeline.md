@@ -15,18 +15,62 @@
    limitations under the License.
 -->
 
-## Hadoop YARN Timeline Service Integration
+# Hadoop YARN Timeline Service Integration
 
-As well as the Filesystem History Provider, Apache Spark can integrate with the Hadoop YARN
+Apache Spark can integrate with the Hadoop YARN
 "Application Timeline Service". This is a service which runs in a YARN cluster, recording
 application- and YARN- published events to a database, retrieving them on request.
 
 Spark integrates with the timeline service by
+
 1. Publishing events to the timeline service as applications execute.
 1. Listing application histories published to the timeline service.
 1. Retrieving the details of specific application histories.
 
-### Configuring the YARN Timeline Service
+## Architecture
+
+The YARN Timeline Service is a web application which can be deployed as part of a YARN cluster.
+It logs events from sources in the cluster, including Hadoop MapReduce and Apache Tez.
+For Apache Spark, it can store the lifecycle events normally logged to a file, then replay
+them later in the Spark History Server Web UI.
+
+A YARN application can send events to the ATS service for recording; in the ATS v1 API, (Hadoop 2.7
+and earlier), this is done via HTTP POST operations. The ATS v1.5 API of Hadoop 2.8 allows events
+to be indirectly published to ATS via HDFS; this offers resilience to transient failures of
+ATS. The ATS service stores event histories as a leveldb database, supplemented by files stored in
+the cluster's filesystem (usually HDFS). A REST API is available for applications to then enumerate and read events stored
+in the ATS database.
+
+When Spark applications are integrated with the ATS service, the application is configured
+to publish events to the ATS service, over HTTP or via HDFS. The Spark History Service
+polls the ATS web service for the list of known Spark applications: this list is split
+into "incomplete" (running) applications, and "completed". When a user asks for the web
+view of an application, the entire application event history is retrieved from ATS and then
+replayed to rebuild the web UI of that specific application.
+
+
+### Limitations
+
+The YARN Application Timeline Service versions v1.0 and 1.5 have some limitations on
+scalability on availability; work to address this is ongoing.
+
+1. The 1.0 ATS API (Hadoop 2.6-2.7) is REST-based. If the server is down, then a backlog of events
+will build up. The configuration parameter `spark.hadoop.yarn.timeline.post.limit` sets a limit,
+after which spark events will be discarded.
+
+1. The 1.5 ATS API saves events to HDFS; data can be written while HDFS is available. The option
+`spark.hadoop.yarn.timeline.post.limit` still sets the limit of events to queue, but as HDFS
+availability and bandwidth is the limiting factor, events are unlikely to back up in the absence
+of a failure of HDFS itself.
+
+1. There's a limit to how many events can be retrieved from the timeline server for a single
+application instance. Tens of thousands of spark events can be stored and retrieved, but
+long-lived spark streaming applications will reach these limits.
+
+For this final reason, we advise against logging to the YARN ATS system in spark streaming
+applications.
+
+## Configuring the YARN Timeline Service
 
 For details on configuring and starting the timeline service, consult the Hadoop documentation.
 
@@ -38,7 +82,8 @@ If this JAR is not present, the ATS "1.0" API can be used, but not the "1.5" API
 
 ### Configuring `yarn-site.xml`
 
-From the perspective of Spark, the key requirements are
+From the perspective of Spark, the key requirements are:
+
 1. The YARN timeline service must be running.
 1. Its URL is known, and configured in the `yarn-site.xml` configuration file.
 1. The user has an Kerberos credentials required to interact with the service.
@@ -79,7 +124,7 @@ Examples:
 The root web page of the timeline service can be verified with a web browser,
 as an easy check that the service is live.
 
-### Saving Application History to the YARN Timeline Service
+## Saving Application History to the YARN Timeline Service
 
 To publish to the YARN Timeline Service, Spark applications executed in a YARN cluster
 must be configured to instantiate the `YarnHistoryService`. This is done
@@ -87,22 +132,20 @@ by setting the spark configuration property `spark.yarn.services`
 to `org.apache.spark.deploy.history.yarn.YarnHistoryService`
 
     spark.yarn.services org.apache.spark.deploy.history.yarn.YarnHistoryService
-    spark.eventLog.enabled true
+    hadoop.yarn.timeline-service.enabled true
 
 Notes
 
-1. If `spark.eventLog.enabled` is set to false in the spark context of an application,
+1. If `spark.hadoop.yarn.timeline-service.enabled` is set to false in the spark context of an application,
 logging will be disabled. We recommend this for long-lived streaming applications, as
 they generate too much history for the timeline server to play back. Note that
 the filesystem log also has issues with very large logs, though less severely.
-1. If the class-name is mis-spelled or cannot be instantiated, an error message will
-be logged; the application will still run.
+1. If the classname is not spelled correctly in `spark.yarn.services`, or it cannot be instantiated,
+an error message will be logged;. The application will still run —but no events will be logged to ATS.
 1. YARN history publishing can run alongside the filesystem history listener; both
-histories can be viewed by an appropriately configured history service.
-1. If the timeline service is disabled, that is the YARN configuratin
-`yarn.timeline-service.enabled` is not
-`true`, then the history will not be published: the application will still run.
-1. Similarly, in a cluster where the timeline service is disabled, the history server
+histories can be viewed by an appropriately configured history service. Set
+`spark.eventLog.enabled` to true to log events to the filesystem.
+1. In a Hadoop cluster where the timeline service is disabled, the Spark history server
 will simply show an empty history, while warning that the history service is disabled.
 1. In a secure cluster, the user must have the Kerberos credentials to interact
 with the timeline server. Being logged in via `kinit` or a keytab should suffice.
@@ -122,16 +165,16 @@ Specific configuration options:
     <td></td>
     <td>
     If UI permissions are set through `spark.acls.enable` or `spark.ui.acls.enable` being true,
-    the optional name of a predefined timeline domain to use . If unset,
-    a value is created programmatically.
+    the optional name of a predefined timeline domain to use.
+    If unset, a value is created programmatically.
     </td>
   </tr>
   <tr>
     <td><code>spark.hadoop.yarn.timeline.post.retry.interval</code></td>
     <td>1s</td>
     <td>
-    Interval between POST retries. Every
-    failure adds another delay of this interval before the next retry
+    Interval between POST retries.
+    Every failure adds another delay of this interval before the next retry
     attempt. The default sequence is therefore: 1s, then 2s, 3s, ...,
     until <code>spark.hadoop.yarn.timeline.post.retry.max.interval</code>
     is reached.
@@ -156,8 +199,9 @@ Specific configuration options:
     <td><code>spark.hadoop.yarn.timeline.post.limit</code></td>
     <td>1000</td>
     <td>
-    Limit on number of queued events to post. When exceeded
-    new events will be dropped. This is to place a limit on how much
+    The Limit on number of queued events to post. When there are more pending events
+    than this, new events will be dropped.
+    This essentially places a limit on how much
     memory will be consumed if the timeline server goes offline.
     </td>
   </tr>
@@ -179,7 +223,7 @@ Specific configuration options:
   </tr>
 </table>
 
-### Viewing Application Histories via the YARN Timeline Service
+## Integrating the Spark History Server with the YARN Timeline Service
 
 To retrieve and display history information in the YARN Timeline Service, the Spark history server must
 be configured to query the timeline service for the lists of running and completed applications.
@@ -209,7 +253,7 @@ The reason for this design is that in large YARN clusters, frequent polling of
 the timeline server to probe for updated applications can place excessive load
 on a shared resource.
 
-Together options can offer different policies. Here are some examples, two
+When combined, the options can offer different policies. Here are some examples, two
 at the extremes and some more balanced
 
 #### Background refresh only; updated every minute
@@ -323,35 +367,14 @@ to disable that option entirely.
 </table>
 
 
-## Limitations
-
-The YARN Application Timeline Service v1-1.5 has some limitations on scaleability on availability;
-work to address this is ongoing.
-
-
-1. The 1.0 ATS API (Hadoop 2.6-2.7) is REST-based. If the server is down, then a backlog of events
-will build up. The configuration parameter `spark.hadoop.yarn.timeline.post.limit` sets a limit,
-after which spark events will be discarded.
-
-1. The 1.5 ATS API saves events to HDFS; data can be written while HDFS is available. The option
-`spark.hadoop.yarn.timeline.post.limit` still sets the limit of events to queue, but server
-outages, hence queue overflow, is less.
-
-1. There's a limit to how many events can be retrieved from the timeline server for a single
-application instance. Tens of thousands of spark events can be stored and retrieved, but
-long-lived spark streaming applications will reach these limits.
-
-For this reason, we recommend that logging to the YARN ATS system is *not* used for spark streaming
-applications.
-
 ## Troubleshooting
 
 Problems related to Spark and ATS integration usually fall into the categories of: scale,
 failure handling and security; the classic problems of all large-scale Hadoop applications.
 
-### List of applications is empty
+### The list of completed applications is empty
 
-This can happen if
+Here are some possible causes of this
 
 - There are no applications recorded in the YARN timeline service. That can be caused
 by the applications not configured to publish to it, or misconfigured so at to be failing to publish.
@@ -364,7 +387,7 @@ logs to see if this is the case.
 - The Spark History Server cannot authenticate with the timeline service: check the
 logs to see if this is the case.
 
-### List of applications is not updating
+### The list of applications is not updating
 
 The history server only looks for incomplete applications at intermittently, as discussed
 above, at regular intervals or after a refresh of the page by (any) user. It may be that
@@ -398,19 +421,19 @@ list being updated.
 ### Events are generated too fast to be saved
 
 This is logged in the metrics of the Spark Application as dropped events, and in the application
-log as dropped events.
+log as dropped events. On playback, the application may be missing information.
 
 1. Increase the number of events posted in a single post via the property
 `spark.hadoop.yarn.timeline.batch.size` -such as 500 or 1000.
 1. Increase the buffer size of events to queue up for posting.
 `spark.hadoop.yarn.timeline.post.limit`.
-1. If the YARN timeline server  supports it, use the ATS 1.5 APIs.
+1. If the YARN timeline server supports it, use the timeline service 1.5 APIs.
 These use the cluster filesystem as the means of passing events from the application to the YARN timeline server.
 
 ### The application is listed as incomplete/not updating
 
 In some versions of spark, the history server does not update an application once it has been
-viewed. This is fixed in Spark 2.0
+viewed.
 
 ### The application history doesn't show all its jobs/stages —or they are incomplete
 
@@ -420,6 +443,12 @@ thresholds are reached, the Spark UI garbage collects old jobs or stages, as app
 
 1. It may have been that not all events were recorded during the execution of the application;
 this should have been noted in the logs.
+
+### The application is not found
+
+1. It may just not have appeared through the refresh process. Depending upon the refresh
+settings, wait a minute or so, possibly refreshing the history page a couple of times.
+1. Get the listing of application attempts from the ATS server (as listed above), see if it is there.
 
 ### The Spark History Server is not showing any applications
 
@@ -455,11 +484,15 @@ http://timelineserver:59587/ws/v1/timeline/spark_event_v01/appattempt_1111_0000_
 If an application attempt cannot be retrieved, it means that the history server does not have
 the data.
 
-### The application is not found
+### The application is listed but cannot be loaded
 
-1. It may just not have appeared through the refresh process. Depending upon the refresh
-settings, wait a minute or so, possibly refreshing the history page a couple of times.
-1. Get the listing of application attempts from the ATS server (as listed above), see if it is there.
+This means that the application attempt has been recorded, but somehow playback fails.
+
+1. The application may be from a later version of Spark; it cannot be replayed by a Spark History
+Server from an older Spark release.
+
+1. There has been some error in or corruption of the event history. The Spark History Server
+logs should highlight this problem arising.
 
 ### Spark History Server cannot get histories on a secure cluster
 
@@ -478,7 +511,7 @@ The Kerberos tokens of whoever started the service have expired; the keytab refr
 To aid troubleshooting the Spark History server, set the diagnostics option:
 
 ```
-spark.history.yarn.diagnostics
+spark.history.yarn.diagnostics true
 ```
 
 This adds extra information in the Web UI, including the URL needed to directly
