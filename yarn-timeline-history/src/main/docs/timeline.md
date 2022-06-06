@@ -60,7 +60,7 @@ after which spark events will be discarded.
 
 1. The 1.5 ATS API saves events to HDFS; data can be written while HDFS is available. The option
 `spark.hadoop.yarn.timeline.post.limit` still sets the limit of events to queue, but as HDFS
-availability and bandwidth is the limiting factor, events are unlikely to back up in the absence
+availability and bandwidth are the limiting factors, events are unlikely to back up in the absence
 of a failure of HDFS itself.
 
 1. There's a limit to how many events can be retrieved from the timeline server for a single
